@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Media;
 
@@ -72,15 +73,55 @@ public sealed class BatteryRingControl : FrameworkElement
         // Track: full circle.
         drawingContext.DrawEllipse(null, trackPen, center, radius, radius);
 
-        // Progress arc (built around the origin; translate to the center so it
-        // sits exactly on the track ring).
+        // Progress arc + the percentage written INSIDE the ring.
         if (Percent is { } percent)
         {
             Tracker.Geometry(radius, percent, out var geometry);
             drawingContext.PushTransform(new TranslateTransform(center.X, center.Y));
             drawingContext.DrawGeometry(null, fillPen, geometry);
             drawingContext.Pop();
+
+            DrawPercentText(drawingContext, center, radius, percent);
         }
+    }
+
+    /// <summary>Big number + smaller % centered inside the ring (reference style).</summary>
+    private void DrawPercentText(DrawingContext drawingContext, Point center, double innerRadius, int percent)
+    {
+        var pixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+        var typeface = new Typeface(
+            new FontFamily("Segoe UI Variable Text, Segoe UI"),
+            FontStyles.Normal,
+            FontWeights.SemiBold,
+            FontStretches.Normal);
+
+        var numberSize = Math.Max(7.5, innerRadius * 0.78);
+        var percentSize = numberSize * 0.52;
+
+        var number = new FormattedText(
+            percent.ToString(CultureInfo.InvariantCulture),
+            CultureInfo.InvariantCulture,
+            FlowDirection.LeftToRight,
+            typeface,
+            numberSize,
+            Brushes.White,
+            pixelsPerDip);
+
+        var sign = new FormattedText(
+            "%",
+            CultureInfo.InvariantCulture,
+            FlowDirection.LeftToRight,
+            typeface,
+            percentSize,
+            Brushes.White,
+            pixelsPerDip);
+
+        var totalWidth = number.Width + sign.Width + 1;
+        var startX = center.X - (totalWidth / 2);
+
+        // Number baseline-centered; % tucked after it, slightly raised.
+        drawingContext.DrawText(number, new Point(startX, center.Y - (number.Height / 2)));
+        drawingContext.DrawText(sign, new Point(startX + number.Width + 1, center.Y - (number.Height / 2) + (number.Height - sign.Height) * 0.55));
     }
 
     /// <summary>Caches the arc geometry per (radius, percent bucket) to avoid per-frame allocations.</summary>

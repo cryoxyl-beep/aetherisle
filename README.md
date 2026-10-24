@@ -11,7 +11,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%2011-0078D4)](https://github.com)
 [![UI](https://img.shields.io/badge/UI-WPF-9B4F96)](https://learn.microsoft.com/dotnet/desktop/wpf/)
 [![Tests](https://img.shields.io/badge/tests-96%2F96-30D158)](#testing)
-[![Release](https://img.shields.io/badge/download-v0.3.1-FF2D55)](https://github.com/cryoxyl-beep/aetherisle/releases/latest)
+[![Release](https://img.shields.io/badge/download-v0.3.2-FF2D55)](https://github.com/cryoxyl-beep/aetherisle/releases/latest)
 
 ### ⬇️ [**Download Aetherisle.exe**](https://github.com/cryoxyl-beep/aetherisle/releases/latest/download/Aetherisle.exe) — double-click and run. No install, no .NET, no admin.
 

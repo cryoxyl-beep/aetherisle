@@ -638,16 +638,13 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- earbuds icon: two buds, AirPods-style -->
-                    <Canvas Grid.Column="0"
-                            Width="52"
-                            Height="44"
-                            VerticalAlignment="Center">
-                        <Ellipse Canvas.Left="4" Canvas.Top="2" Width="13" Height="13" Fill="#F5F5F7" />
-                        <Rectangle Canvas.Left="6.5" Canvas.Top="12" Width="8" Height="16" Fill="#F5F5F7" RadiusX="4" RadiusY="8" />
-                        <Ellipse Canvas.Left="35" Canvas.Top="2" Width="13" Height="13" Fill="#F5F5F7" />
-                        <Rectangle Canvas.Left="37.5" Canvas.Top="12" Width="8" Height="16" Fill="#F5F5F7" RadiusX="4" RadiusY="8" />
-                    </Canvas>
+                    <!-- 3D earbuds artwork (user-supplied) -->
+                    <Image Grid.Column="0"
+                           Source="/Resources/earbuds3d.png"
+                           Width="46"
+                           Height="46"
+                           Stretch="Uniform"
+                           VerticalAlignment="Center" />
 
                     <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
                         <TextBlock Text="{Binding BatteryDeviceName, FallbackValue='Earbuds'}"

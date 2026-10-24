@@ -32,7 +32,15 @@ public sealed class FileLoggerProvider : ILoggerProvider
         CleanupOldLogs(retentionDays: 7);
 
         var filePath = Path.Combine(_directory, $"grumphy-{DateTime.Now:yyyyMMdd}.log");
-        _writer = new StreamWriter(filePath, append: true) { AutoFlush = true };
+
+        // Open with shared read/write access so a stale instance holding the
+        // file can never crash this one's startup.
+        var stream = new FileStream(
+            filePath,
+            FileMode.Append,
+            FileAccess.Write,
+            FileShare.ReadWrite);
+        _writer = new StreamWriter(stream) { AutoFlush = true };
         _writeTask = Task.Run(WriteLoopAsync);
     }
 

@@ -32,4 +32,8 @@
     <ProjectReference Include="..\GrumphySwarm.Core\GrumphySwarm.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="Resources\earbuds3d.png" />
+  </ItemGroup>
+
 </Project>

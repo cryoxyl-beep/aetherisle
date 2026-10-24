@@ -91,6 +91,9 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     internal static extern IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
 
+    [DllImport("user32.dll")]
+    internal static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
     internal const uint MONITOR_DEFAULTTOPRIMARY = 1;
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]

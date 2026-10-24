@@ -67,6 +67,8 @@ public partial class NotchWindow : Window
 
         ApplyNoActivateWindowStyles();
         RepositionToMonitor("initial placement");
+        Island.SizeChanged += (_, _) => RefreshDragCache();
+        Dispatcher.BeginInvoke(RefreshDragCache, System.Windows.Threading.DispatcherPriority.Background);
         InstallDismissalAndMiddleClickHook();
 
         SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
@@ -139,6 +141,8 @@ public partial class NotchWindow : Window
             placement.Width,
             placement.Height,
             NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_NOOWNERZORDER);
+
+        Dispatcher.BeginInvoke(RefreshDragCache, System.Windows.Threading.DispatcherPriority.Background);
 
         _logger.LogInformation(
             "Window placed ({Reason}): monitor {Left},{Top} {Width}x{Height}, scale {ScaleX:N2}/{ScaleY:N2}, window {WinX},{WinY} {WinWidth}x{WinHeight} px.",
@@ -257,6 +261,73 @@ public partial class NotchWindow : Window
     private double _shiftDragStartOffsetX;
     private double _shiftDragStartOffsetY;
 
+    // ---- shift-drag fast-path cache ------------------------------------------------
+    // Windows silently unhooks low-level hooks whose callbacks take too long
+    // (~300 ms), which is what made the old drag feel dead: it called WPF
+    // layout (PointToScreen) inside the hook. Everything below is plain data,
+    // refreshed on the UI thread, so the hook callback is pure math + one
+    // SetWindowPos — nothing that can trip the hook timeout.
+    private Rect _grabRectScreen;      // island rect + margin, physical px
+    private NativeMethods.RECT _dragMonitor;
+    private double _dragScaleX = 1, _dragScaleY = 1;
+    private int _baseX, _baseY, _winW, _winH; // offset-zero placement, physical px
+
+    private void RefreshDragCache()
+    {
+        if (_hwnd == IntPtr.Zero)
+        {
+            return;
+        }
+
+        try
+        {
+            if (PresentationSource.FromVisual(this)?.CompositionTarget is not { } target)
+            {
+                return;
+            }
+
+            var scale = target.TransformToDevice;
+            _dragScaleX = scale.M11;
+            _dragScaleY = scale.M22;
+
+            const uint monitorNearest = 2;
+            var monitor = NativeMethods.MonitorFromWindow(_hwnd, monitorNearest);
+            var info = new NativeMethods.MONITORINFO { cbSize = Marshal.SizeOf<NativeMethods.MONITORINFO>() };
+            if (!NativeMethods.GetMonitorInfo(monitor, ref info))
+            {
+                return;
+            }
+
+            _dragMonitor = info.rcMonitor;
+
+            var placement = NotchLayout.ComputePlacement(
+                info.rcMonitor.Left,
+                info.rcMonitor.Top,
+                info.rcMonitor.Right - info.rcMonitor.Left,
+                info.rcMonitor.Bottom - info.rcMonitor.Top,
+                NotchDimensions.WindowWidth,
+                NotchDimensions.WindowHeight,
+                _dragScaleX,
+                _dragScaleY);
+            _baseX = placement.X;
+            _baseY = placement.Y;
+            _winW = placement.Width;
+            _winH = placement.Height;
+
+            var topLeft = Island.PointToScreen(new Point(0, 0));
+            var margin = 40 * _dragScaleX;
+            _grabRectScreen = new Rect(
+                topLeft.X - margin,
+                topLeft.Y - margin,
+                (Island.ActualWidth * _dragScaleX) + (2 * margin),
+                (Island.ActualHeight * _dragScaleY) + (2 * margin));
+        }
+        catch (InvalidOperationException)
+        {
+            // Layout not ready — the next refresh fills the cache.
+        }
+    }
+
     private void InstallDismissalAndMiddleClickHook()
     {
         if (_mouseHook != IntPtr.Zero)
@@ -291,41 +362,50 @@ public partial class NotchWindow : Window
 
             switch (message)
             {
-                case NativeMethods.WM_LBUTTONDOWN when NativeMethods.IsShiftHeld() && IsScreenPointOverIsland(screenPoint):
+                case NativeMethods.WM_LBUTTONDOWN when NativeMethods.IsShiftHeld() && _grabRectScreen.Contains(screenPoint):
                     // Begin the shift-drag gesture and swallow this click so
                     // nothing beneath reacts (the window itself is fully
-                    // click-through while Shift is held).
+                    // click-through while Shift is held). Pure field writes —
+                    // no WPF work inside the hook.
                     _shiftDragging = true;
                     _shiftDragOriginScreen = screenPoint;
                     _shiftDragStartOffsetX = _viewModel.DragOffsetX;
                     _shiftDragStartOffsetY = _viewModel.DragOffsetY;
-                    _logger.LogInformation("Shift-drag started at {X},{Y} (offset {OX},{OY}).", screenPoint.X, screenPoint.Y, _shiftDragStartOffsetX, _shiftDragStartOffsetY);
                     return new IntPtr(1);
 
                 case NativeMethods.WM_MOUSEMOVE when _shiftDragging:
                 {
-                    var scaleX = 1.0;
-                    var scaleY = 1.0;
-                    if (PresentationSource.FromVisual(this)?.CompositionTarget is { } target)
-                    {
-                        var scale = target.TransformToDevice;
-                        scaleX = scale.M11;
-                        scaleY = scale.M22;
-                    }
+                    // Fast path: cached geometry + one SetWindowPos. No layout,
+                    // no dispatcher, no allocations that could slow the hook.
+                    var offsetXdip = _shiftDragStartOffsetX + ((screenPoint.X - _shiftDragOriginScreen.X) / _dragScaleX);
+                    var offsetYdip = _shiftDragStartOffsetY + ((screenPoint.Y - _shiftDragOriginScreen.Y) / _dragScaleY);
+                    _viewModel.UpdateDragOffset(offsetXdip, offsetYdip);
 
-                    var deltaX = (screenPoint.X - _shiftDragOriginScreen.X) / scaleX;
-                    var deltaY = (screenPoint.Y - _shiftDragOriginScreen.Y) / scaleY;
+                    var x = _baseX + (int)Math.Round(offsetXdip * _dragScaleX);
+                    var y = _baseY + (int)Math.Round(offsetYdip * _dragScaleY);
+                    var monitorWidth = _dragMonitor.Right - _dragMonitor.Left;
+                    var monitorHeight = _dragMonitor.Bottom - _dragMonitor.Top;
+                    x = Math.Clamp(x, _dragMonitor.Left, _dragMonitor.Left + Math.Max(0, monitorWidth - _winW));
+                    y = Math.Clamp(y, _dragMonitor.Top, _dragMonitor.Top + Math.Max(0, monitorHeight - _winH));
 
-                    _viewModel.UpdateDragOffset(
-                        _shiftDragStartOffsetX + deltaX,
-                        _shiftDragStartOffsetY + deltaY);
-                    Dispatcher.BeginInvoke(() => RepositionToMonitor("island dragged"));
+                    NativeMethods.SetWindowPos(
+                        _hwnd,
+                        IntPtr.Zero,
+                        x,
+                        y,
+                        0,
+                        0,
+                        NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_NOOWNERZORDER);
                     return new IntPtr(1);
                 }
 
                 case NativeMethods.WM_LBUTTONUP when _shiftDragging:
                     _shiftDragging = false;
-                    _viewModel.SaveDragOffset();
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        _viewModel.SaveDragOffset();
+                        RefreshDragCache();
+                    });
                     return new IntPtr(1);
 
                 case NativeMethods.WM_MBUTTONDOWN:
@@ -355,38 +435,12 @@ public partial class NotchWindow : Window
     }
 
     /// <summary>
-    /// Shift-drag grab test: the island's screen rect inflated by a generous
-    /// 40px margin — easy to grab (never stubborn) while clicks further away
-    /// still pass through to apps beneath during Shift ghost mode.
-    /// (Hook thread = UI thread.)
+    /// Shift-drag grab region is the cached <see cref="_grabRectScreen"/>
+    /// (island rect + margin, refreshed on the UI thread by
+    /// <see cref="RefreshDragCache"/>). Kept as a method for readability.
     /// </summary>
     private bool IsScreenPointOverIsland(Point screenPointPhysical)
-    {
-        try
-        {
-            var topLeft = Island.PointToScreen(new Point(0, 0));
-            double scaleX = 1, scaleY = 1;
-            if (PresentationSource.FromVisual(this)?.CompositionTarget is { } target)
-            {
-                var scale = target.TransformToDevice;
-                scaleX = scale.M11;
-                scaleY = scale.M22;
-            }
-
-            const double margin = 40;
-            var width = Island.ActualWidth * scaleX;
-            var height = Island.ActualHeight * scaleY;
-
-            return screenPointPhysical.X >= topLeft.X - margin
-                && screenPointPhysical.Y >= topLeft.Y - margin
-                && screenPointPhysical.X <= topLeft.X + width + margin
-                && screenPointPhysical.Y <= topLeft.Y + height + margin;
-        }
-        catch
-        {
-            return false;
-        }
-    }
+        => _grabRectScreen.Contains(screenPointPhysical);
 
     private bool IsPointOverIsland(Point screenPointPhysical)
     {
