@@ -1,4 +1,5 @@
 using System.IO;
+using GrumphySwarm.Core.Media;
 using GrumphySwarm.Core.Monitors;
 using Microsoft.Extensions.Logging;
 using Windows.Media.Control;
@@ -42,6 +43,8 @@ public sealed class WindowsMediaMonitor : IMediaMonitor
     public MediaTimeline? Timeline { get; private set; }
 
     private byte[]? _lastArtworkBytes;
+    private bool _artworkAllowed;
+    private bool _artworkAllowedLogged;
 
     public void Start()
     {
@@ -215,6 +218,21 @@ public sealed class WindowsMediaMonitor : IMediaMonitor
             var controls = playback.Controls;
             var properties = await session.TryGetMediaPropertiesAsync();
 
+            // Artwork gating happens HERE on the raw app-user-model id (e.g.
+            // "AppleInc.AppleMusicWin_…"), because the friendly display name
+            // ("Apple Music") would never match the allow-list tokens.
+            var artworkAllowed = MediaAllowList.IsAlbumArtAllowed(session.SourceAppUserModelId);
+            if (artworkAllowed != _artworkAllowedLogged)
+            {
+                _artworkAllowedLogged = artworkAllowed;
+                _logger.LogInformation(
+                    "Media: album art {State} for {Source}.",
+                    artworkAllowed ? "enabled" : "disabled (app not on the allow-list)",
+                    session.SourceAppUserModelId);
+            }
+
+            _artworkAllowed = artworkAllowed;
+
             var info = new MediaInfo(
                 Title: properties?.Title ?? string.Empty,
                 Artist: properties?.Artist ?? string.Empty,
@@ -241,6 +259,18 @@ public sealed class WindowsMediaMonitor : IMediaMonitor
         var handler = ArtworkChanged;
         if (handler is null)
         {
+            return;
+        }
+
+        // Not on the allow-list → never publish artwork, and clear leftovers.
+        if (!_artworkAllowed)
+        {
+            if (_lastArtworkBytes is not null)
+            {
+                _lastArtworkBytes = null;
+                handler(Array.Empty<byte>());
+            }
+
             return;
         }
 

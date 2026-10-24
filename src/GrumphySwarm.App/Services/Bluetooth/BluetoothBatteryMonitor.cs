@@ -29,6 +29,16 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
         "System.Devices.AepBattery_Level",
     ];
 
+    /// <summary>Raw fmtid/pid form of PKEY_Devices_Aep_BatteryLevel — some
+    /// Windows builds reject the canonical name in watcher queries but accept
+    /// (and key results by) this form.</summary>
+    private static readonly string[] FullPropertiesRaw =
+    [
+        "System.ItemNameDisplay",
+        "System.Devices.Aep.IsConnected",
+        "{83DA6326-97A6-4088-9453-A1923F573B29} 4",
+    ];
+
     private static readonly string[] ConnectedProperties =
     [
         "System.ItemNameDisplay",
@@ -41,9 +51,12 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
     private readonly object _gate = new();
     private readonly Dictionary<string, EarbudStatus> _devices = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Windows.Devices.Bluetooth.GenericAttributeProfile.GattCharacteristic> _gattCharacteristics = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<Windows.Devices.Bluetooth.GenericAttributeProfile.GattDeviceService> _gattServiceHolders = [];
     private readonly HashSet<string> _gattAttempted = new(StringComparer.OrdinalIgnoreCase);
 
     private DeviceWatcher? _watcher;
+    private DeviceWatcher? _containerWatcher;
+    private DeviceWatcher? _serviceWatcher;
     private string[] _activeProperties = FullProperties;
     private bool _disposed;
 
@@ -76,10 +89,12 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
                 return;
             }
 
-            var selector = Windows.Devices.Bluetooth.BluetoothDevice.GetDeviceSelector();
+            var selector = string.Empty; // ALL association endpoints — the
+            // battery for TWS buds may surface on the classic, LE, AVRCP or
+            // HFP endpoint; a protocol-filtered watcher misses some of them.
 
             // Property-list fallback chain: some builds reject individual keys.
-            foreach (var properties in new[] { FullProperties, ConnectedProperties, NameOnlyProperties })
+            foreach (var properties in new[] { FullProperties, FullPropertiesRaw, ConnectedProperties, NameOnlyProperties })
             {
                 try
                 {
@@ -106,9 +121,53 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
             _watcher.EnumerationCompleted += (_, _) => _logger.LogInformation("Bluetooth: device enumeration complete.");
             _watcher.Start();
 
+            // Windows Settings shows battery on the device CONTAINER page; the
+            // value may be aggregated there even when the raw endpoint property
+            // reads empty. Watch containers too.
+            try
+            {
+                _containerWatcher = DeviceInformation.CreateWatcher(
+                    string.Empty,
+                    _activeProperties,
+                    DeviceInformationKind.AssociationEndpointContainer);
+                _containerWatcher.Added += OnWatcherAdded;
+                _containerWatcher.Updated += OnWatcherUpdated;
+                _containerWatcher.Removed += OnWatcherRemoved;
+                _containerWatcher.Start();
+                _logger.LogInformation("Bluetooth: container watcher active (Settings-style battery path).");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Bluetooth: container watcher unavailable.");
+                _containerWatcher = null;
+            }
+
+            // GATT services surface as AssociationEndpointService objects, and a
+            // battery service often carries System.Devices.AepBattery_Level
+            // there even when the device-level property reads empty. Service
+            // names are frequently blank, so allow-list matching falls back to
+            // the parent endpoint id embedded in the service id.
+            try
+            {
+                _serviceWatcher = DeviceInformation.CreateWatcher(
+                    string.Empty,
+                    _activeProperties,
+                    DeviceInformationKind.AssociationEndpointService);
+                _serviceWatcher.Added += OnWatcherAdded;
+                _serviceWatcher.Updated += OnWatcherUpdated;
+                _serviceWatcher.Removed += OnWatcherRemoved;
+                _serviceWatcher.Start();
+                _logger.LogInformation("Bluetooth: service endpoint watcher active (GATT battery service path).");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Bluetooth: service watcher unavailable.");
+                _serviceWatcher = null;
+            }
+
             IsSupported = true;
             _logger.LogInformation(
-                "Bluetooth: allow-listed accessory monitoring active (event-driven, {PropertyCount} properties watched).",
+                "Bluetooth: allow-listed accessory monitoring active (all AEPs, event-driven, {PropertyCount} properties watched).",
                 _activeProperties.Length);
         }
     }
@@ -135,17 +194,39 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
 
     private void UpdateFromProperties(string id, string name, IReadOnlyDictionary<string, object> properties)
     {
+        var battery = ReadBatteryPercent(properties);
+
+        // Service endpoints often have blank names — match them to an
+        // allow-listed parent via the id prefix instead.
         if (!MediaAllowList.IsEarbudAllowed(name))
         {
+            if (battery is not { } percent || !TryApplyToParentDevice(id, percent))
+            {
+                return;
+            }
+
+            Publish();
             return;
         }
 
         var connected = ReadBool(properties, "System.Devices.Aep.IsConnected");
-        var battery = ReadBatteryPercent(properties);
 
         lock (_gate)
         {
             _devices[id] = new EarbudStatus(name, battery, connected);
+
+            // Merge: a battery found on one entry (e.g. the container or LE
+            // endpoint) fills sibling entries of the same device name.
+            if (battery is { } percent)
+            {
+                foreach (var key in _devices.Keys.ToList())
+                {
+                    if (key != id && _devices[key].Name == name && _devices[key].BatteryPercent is null)
+                    {
+                        _devices[key] = _devices[key] with { BatteryPercent = percent };
+                    }
+                }
+            }
         }
 
         _logger.LogInformation(
@@ -176,142 +257,59 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
 
     private async Task QueryBatteryAsync(string deviceId)
     {
+        // Battery values often appear a few seconds AFTER the device connects.
+        // Try the canonical property form first, then refresh the device a
+        // couple of times (UpdateDeviceInformationAsync re-reads the store).
+        if (await TryReadBatteryAsync(deviceId) is { } immediate)
+        {
+            ApplyBattery(deviceId, immediate, "immediate read");
+            return;
+        }
+
+        foreach (var delay in new[] { 2000, 6000 })
+        {
+            await Task.Delay(delay);
+            if (_disposed)
+            {
+                return;
+            }
+
+            // CreateFromIdAsync re-reads the current property store — battery
+            // values often land there a few seconds after the connect event.
+            if (await TryReadBatteryAsync(deviceId) is { } percent)
+            {
+                ApplyBattery(deviceId, percent, "delayed read");
+                return;
+            }
+        }
+
+        if (!_batteryDiagnosticsLogged)
+        {
+            _batteryDiagnosticsLogged = true;
+            _logger.LogInformation(
+                "Bluetooth: battery value never appeared for this device — the AEP property stays empty on this build.");
+        }
+    }
+
+    private async Task<int?> TryReadBatteryAsync(string deviceId)
+    {
         try
         {
             var device = await DeviceInformation.CreateFromIdAsync(
                 deviceId,
                 ["System.Devices.AepBattery_Level"],
                 DeviceInformationKind.AssociationEndpoint);
-
-            var battery = ReadBatteryPercent(device.Properties);
-            if (battery is null)
-            {
-                return; // device genuinely does not report battery
-            }
-
-            bool changed;
-            lock (_gate)
-            {
-                if (_devices.TryGetValue(deviceId, out var known))
-                {
-                    _devices[deviceId] = known with { BatteryPercent = battery };
-                    changed = true;
-                }
-                else
-                {
-                    changed = false;
-                }
-            }
-
-            if (changed)
-            {
-                _logger.LogInformation("Bluetooth: battery reported via per-device query: {Percent}%.", battery);
-                Publish();
-            }
+            return ReadBatteryPercent(device.Properties);
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Bluetooth: per-device battery query failed for {DeviceId}.", deviceId);
+            _logger.LogDebug(ex, "Bluetooth: canonical battery read failed for {DeviceId}.", deviceId);
+            return null;
         }
     }
 
-    /// <summary>
-    /// Direct GATT Battery Service read (and live subscription) for devices
-    /// that don't publish battery through the AEP property. Parses the Bluetooth
-    /// address from the AEP device id, opens a GATT session on the standard
-    /// 0x180F service and reads every 0x2A19 characteristic (left/right buds
-    /// often expose one each; the average is published).
-    /// </summary>
-    private async Task QueryGattBatteryAsync(string deviceId, string deviceName)
+    private void ApplyBattery(string deviceId, int percent, string source)
     {
-        var address = ParseBluetoothAddress(deviceId);
-        if (address is null)
-        {
-            _logger.LogDebug("Bluetooth: could not parse an address from {DeviceId} — GATT battery read skipped.", deviceId);
-            return;
-        }
-
-        // One GATT session per device, kept for live updates.
-        GattDeviceService? heldService = null;
-        var levels = new List<byte>();
-
-        try
-        {
-            var leDevice = await Windows.Devices.Bluetooth.BluetoothLEDevice.FromBluetoothAddressAsync(address.Value);
-            if (leDevice is null)
-            {
-                _logger.LogInformation(
-                    "Bluetooth: {Name} does not expose a GATT connection — battery % unavailable (device reports none).",
-                    deviceName);
-                return;
-            }
-
-            var servicesResult = await leDevice.GetGattServicesForUuidAsync(
-                GattServiceUuids.Battery,
-                Windows.Devices.Bluetooth.BluetoothCacheMode.Uncached);
-
-            if (servicesResult.Status != GattCommunicationStatus.Success
-                || servicesResult.Services.Count == 0)
-            {
-                _logger.LogInformation(
-                    "Bluetooth: {Name} has no readable GATT Battery Service ({Status}) — battery % unavailable.",
-                    deviceName,
-                    servicesResult.Status);
-                return;
-            }
-
-            foreach (var candidate in servicesResult.Services)
-            {
-                try
-                {
-                    var characteristics = await candidate.GetCharacteristicsForUuidAsync(
-                        GattCharacteristicUuids.BatteryLevel,
-                        Windows.Devices.Bluetooth.BluetoothCacheMode.Uncached);
-
-                    foreach (var characteristic in characteristics.Characteristics)
-                    {
-                        var read = await characteristic.ReadValueAsync(Windows.Devices.Bluetooth.BluetoothCacheMode.Uncached);
-                        var reader = Windows.Storage.Streams.DataReader.FromBuffer(read.Value);
-                        var level = reader.ReadByte();
-                        if (level <= 100)
-                        {
-                            levels.Add(level);
-                        }
-
-                        // Keep the first characteristic subscribed for live updates.
-                        if (_gattCharacteristics.Count == 0)
-                        {
-                            _gattCharacteristics[deviceId] = characteristic;
-                            characteristic.ValueChanged += OnGattValueChanged;
-                        }
-                    }
-
-                    if (levels.Count > 0 && heldService is null)
-                    {
-                        heldService = candidate; // hold a reference so the session stays alive
-                    }
-                }
-                catch
-                {
-                    // Characteristic read failures just mean this service slot has none.
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Bluetooth: GATT battery read failed for {Name}.", deviceName);
-            return;
-        }
-
-        if (levels.Count == 0)
-        {
-            _logger.LogInformation(
-                "Bluetooth: {Name} exposes no GATT battery level — battery % unavailable (hardware does not report it).",
-                deviceName);
-            return;
-        }
-
-        var percent = (int)Math.Round(levels.Average(l => l));
         bool changed;
         lock (_gate)
         {
@@ -326,15 +324,126 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
             }
         }
 
+        if (changed)
+        {
+            _logger.LogInformation("Bluetooth: battery {Percent}% ({Source}).", percent, source);
+            Publish();
+        }
+    }
+
+    private bool _batteryDiagnosticsLogged;
+
+    /// <summary>
+    /// Direct GATT Battery Service read (and live subscription) for devices
+    /// that don't publish battery through the AEP property. Parses the Bluetooth
+    /// address from the AEP device id, opens a GATT session on the standard
+    /// 0x180F service and reads every 0x2A19 characteristic (left/right buds
+    /// often expose one each; the average is published).
+    /// </summary>
+    private async Task QueryGattBatteryAsync(string deviceId, string deviceName)
+    {
+        var address = ParseBluetoothAddress(deviceId);
+        if (address is null)
+        {
+            _logger.LogInformation(
+                "Bluetooth: could not parse a Bluetooth address from '{DeviceId}' — GATT read skipped.",
+                deviceId);
+            return;
+        }
+
+        // GATT Battery Service over LE (the only GATT surface WinRT exposes).
+        var levels = new List<byte>();
+
+        try
+        {
+            var leDevice = await Windows.Devices.Bluetooth.BluetoothLEDevice.FromBluetoothAddressAsync(address.Value);
+            if (leDevice is not null)
+            {
+                await CollectBatteryLevelsAsync(
+                    () => leDevice.GetGattServicesForUuidAsync(
+                        GattServiceUuids.Battery,
+                        Windows.Devices.Bluetooth.BluetoothCacheMode.Uncached).AsTask(),
+                    levels,
+                    deviceId);
+            }
+
+            if (levels.Count == 0)
+            {
+                _logger.LogInformation(
+                    "Bluetooth: {Name} exposes no GATT Battery Service ({Address:X12}) — battery % unavailable from this channel.",
+                    deviceName,
+                    address.Value);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Bluetooth: GATT battery read failed for {Name}.", deviceName);
+            return;
+        }
+
+        var percent = (int)Math.Round(levels.Average(l => l));
+        ApplyBattery(deviceId, percent, "GATT");
+
         _logger.LogInformation(
             "Bluetooth: {Name} battery via GATT: {Percent}% ({Count} reading(s)).",
             deviceName,
             percent,
             levels.Count);
+    }
 
-        if (changed)
+    /// <summary>
+    /// Reads every Battery Service (0x180F) characteristic from a GATT services
+    /// result and keeps the first one subscribed for live updates. Service
+    /// instances are retained so the GATT session stays alive.
+    /// </summary>
+    private async Task CollectBatteryLevelsAsync(
+        Func<Task<Windows.Devices.Bluetooth.GenericAttributeProfile.GattDeviceServicesResult>> getServices,
+        List<byte> levels,
+        string deviceId)
+    {
+        var servicesResult = await getServices();
+
+        if (servicesResult.Status != GattCommunicationStatus.Success
+            || servicesResult.Services.Count == 0)
         {
-            Publish();
+            return;
+        }
+
+        foreach (var candidate in servicesResult.Services.Where(s => s.Uuid == GattServiceUuids.Battery))
+        {
+            try
+            {
+                var characteristics = await candidate.GetCharacteristicsForUuidAsync(
+                    GattCharacteristicUuids.BatteryLevel,
+                    Windows.Devices.Bluetooth.BluetoothCacheMode.Uncached);
+
+                foreach (var characteristic in characteristics.Characteristics)
+                {
+                    var read = await characteristic.ReadValueAsync(Windows.Devices.Bluetooth.BluetoothCacheMode.Uncached);
+                    var reader = Windows.Storage.Streams.DataReader.FromBuffer(read.Value);
+                    var level = reader.ReadByte();
+                    if (level <= 100)
+                    {
+                        levels.Add(level);
+                    }
+
+                    // Keep the first characteristic subscribed for live updates.
+                    lock (_gate)
+                    {
+                        if (!_gattCharacteristics.ContainsKey(deviceId))
+                        {
+                            _gattCharacteristics[deviceId] = characteristic;
+                            _gattServiceHolders.Add(candidate);
+                            characteristic.ValueChanged += OnGattValueChanged;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Characteristic read failures just mean this slot has none.
+            }
         }
     }
 
@@ -416,31 +525,59 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
 
     private static int? ReadBatteryPercent(IReadOnlyDictionary<string, object> properties)
     {
-        if (!properties.TryGetValue("System.Devices.AepBattery_Level", out var value))
+        // Accept whichever key form the system used for the battery property.
+        foreach (var key in properties.Keys)
         {
-            return null;
-        }
-
-        try
-        {
-            var raw = value switch
+            var isBatteryKey = key.Contains("AepBattery", StringComparison.OrdinalIgnoreCase)
+                || key.StartsWith("{83DA6326-97A6-4088-9453-A1923F573B29}", StringComparison.OrdinalIgnoreCase);
+            if (!isBatteryKey)
             {
-                ulong u => (long)u,
-                IConvertible convertible => convertible.ToInt64(System.Globalization.CultureInfo.InvariantCulture),
-                _ => -1,
-            };
-
-            if (raw is < 0 or > 100)
-            {
-                return null;
+                continue;
             }
 
-            return (int)raw;
+            try
+            {
+                var raw = properties[key] switch
+                {
+                    ulong u => (long)u,
+                    IConvertible convertible => convertible.ToInt64(System.Globalization.CultureInfo.InvariantCulture),
+                    _ => -1,
+                };
+
+                if (raw is >= 0 and <= 100)
+                {
+                    return (int)raw;
+                }
+            }
+            catch
+            {
+                // Wrong shape for this key — try the next one.
+            }
         }
-        catch
+
+        return null;
+    }
+
+    /// <summary>
+    /// Service endpoint ids embed their parent endpoint id as a prefix; applies
+    /// a battery reading to the matching allow-listed parent device.
+    /// </summary>
+    private bool TryApplyToParentDevice(string serviceId, int percent)
+    {
+        lock (_gate)
         {
-            return null;
+            foreach (var key in _devices.Keys.ToList())
+            {
+                if (serviceId.StartsWith(key, StringComparison.OrdinalIgnoreCase))
+                {
+                    _devices[key] = _devices[key] with { BatteryPercent = percent };
+                    _logger.LogInformation("Bluetooth: battery {Percent}% via service endpoint.", percent);
+                    return true;
+                }
+            }
         }
+
+        return false;
     }
 
     private void Publish()
@@ -459,21 +596,29 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
 
             _disposed = true;
 
-            if (_watcher is not null)
+            foreach (var watcher in new[] { _watcher, _containerWatcher, _serviceWatcher })
             {
+                if (watcher is null)
+                {
+                    continue;
+                }
+
                 try
                 {
-                    _watcher.Added -= OnWatcherAdded;
-                    _watcher.Updated -= OnWatcherUpdated;
-                    _watcher.Removed -= OnWatcherRemoved;
-                    _watcher.Stop();
-                    _watcher = null;
+                    watcher.Added -= OnWatcherAdded;
+                    watcher.Updated -= OnWatcherUpdated;
+                    watcher.Removed -= OnWatcherRemoved;
+                    watcher.Stop();
                 }
                 catch
                 {
                     // Best effort during shutdown.
                 }
             }
+
+            _watcher = null;
+            _containerWatcher = null;
+            _serviceWatcher = null;
         }
     }
 }

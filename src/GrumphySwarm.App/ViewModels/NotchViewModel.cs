@@ -382,6 +382,7 @@ public partial class NotchViewModel : ObservableObject, IDisposable
 
         var status = _bluetoothMonitor.Current.Values
             .OrderByDescending(d => d.IsConnected)
+            .ThenByDescending(d => d.BatteryPercent.HasValue)
             .ThenBy(d => d.Name, StringComparer.CurrentCulture)
             .FirstOrDefault();
 
@@ -604,9 +605,9 @@ public partial class NotchViewModel : ObservableObject, IDisposable
     {
         _dispatcher.BeginInvoke(() =>
         {
-            // Artwork is exclusive to the allow-list (Spotify / Apple Music /
-            // web player); other sources keep text-only presentation.
-            if (bytes.Length == 0 || !HasActiveMedia || !MediaAllowList.IsAlbumArtAllowed(_mediaMonitor.Current?.AppName))
+            // The service already gates artwork on the allow-list (checked
+            // against the raw source id); here we only handle presence.
+            if (bytes.Length == 0 || !HasActiveMedia)
             {
                 HasArtwork = false;
                 MediaArtwork = null;
@@ -675,6 +676,7 @@ public partial class NotchViewModel : ObservableObject, IDisposable
         {
             var status = devices.Values
                 .OrderByDescending(d => d.IsConnected)
+                .ThenByDescending(d => d.BatteryPercent.HasValue)
                 .ThenBy(d => d.Name, StringComparer.CurrentCulture)
                 .FirstOrDefault();
 

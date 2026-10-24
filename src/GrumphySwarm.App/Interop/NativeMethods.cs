@@ -99,9 +99,19 @@ internal static class NativeMethods
     // ---- low-level mouse hook (outside-click dismissal while pinned) --------
 
     internal const int WH_MOUSE_LL = 14;
+    internal const int WM_MOUSEMOVE = 0x0200;
     internal const int WM_LBUTTONDOWN = 0x0201;
+    internal const int WM_LBUTTONUP = 0x0202;
     internal const int WM_RBUTTONDOWN = 0x0204;
     internal const int WM_MBUTTONDOWN = 0x0207;
+
+    internal const int VK_SHIFT = 0x10;
+
+    [DllImport("user32.dll")]
+    internal static extern short GetAsyncKeyState(int virtualKey);
+
+    /// <summary>True while either Shift key is held.</summary>
+    internal static bool IsShiftHeld() => (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
 
     [StructLayout(LayoutKind.Sequential)]
     internal struct MSLLHOOKSTRUCT

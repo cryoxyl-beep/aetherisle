@@ -103,13 +103,11 @@ public partial class NotchIsland : UserControl
         DataContextChanged += OnDataContextChanged;
 
         // Island interactions: single click opens the media player when a
-        // session is active, double click toggles the earbud battery capsule,
-        // and a drag beyond a small threshold freely repositions the island.
+        // session is active, double click toggles the earbud battery capsule.
+        // Repositioning is Shift+drag, handled by the host window's global
+        // hook (the island itself is click-through while Shift is held).
         // Clicks on real controls (buttons) pass through untouched.
         PreviewMouseLeftButtonDown += OnIslandMouseDown;
-        PreviewMouseMove += OnIslandMouseMove;
-        PreviewMouseLeftButtonUp += OnIslandMouseUp;
-        LostMouseCapture += OnIslandLostMouseCapture;
     }
 
     private NotchViewModel? ViewModel => DataContext as NotchViewModel;
@@ -271,80 +269,17 @@ public partial class NotchIsland : UserControl
         }
     }
 
-    // --------------------------------------------------------- island clicks + drag
-
-    /// <summary>Raised while the user drags the island; the vector is a DIP delta.</summary>
-    public event EventHandler<Vector>? DragDelta;
-
-    /// <summary>Raised when a drag ends (mouse released after actual movement).</summary>
-    public event EventHandler? DragCompleted;
-
-    private Point? _pressPoint;
-    private Point _lastDragPoint;
-    private bool _dragging;
-
-    private const double DragThreshold = 6;
+    // --------------------------------------------------------- island clicks
 
     private void OnIslandMouseDown(object sender, MouseButtonEventArgs e)
     {
         // Let real controls (transport buttons, tab chips, pin) handle their own
-        // clicks; only bare-island clicks open the player / battery capsule or
-        // start a drag.
+        // clicks; only bare-island clicks open the player / battery capsule.
         if (IsInsideButton(e.OriginalSource as DependencyObject))
         {
             return;
         }
 
-        _pressPoint = e.GetPosition(this);
-        _lastDragPoint = _pressPoint.Value;
-        _dragging = false;
-        CaptureMouse();
-    }
-
-    private void OnIslandMouseMove(object sender, MouseEventArgs e)
-    {
-        if (!IsMouseCaptured || _pressPoint is not { } press)
-        {
-            return;
-        }
-
-        var position = e.GetPosition(this);
-
-        if (!_dragging)
-        {
-            var dx = position.X - press.X;
-            var dy = position.Y - press.Y;
-            if ((dx * dx) + (dy * dy) < DragThreshold * DragThreshold)
-            {
-                return;
-            }
-
-            _dragging = true;
-            _lastDragPoint = position;
-        }
-
-        var delta = position - _lastDragPoint;
-        _lastDragPoint = position;
-        DragDelta?.Invoke(this, delta);
-        e.Handled = true;
-    }
-
-    private void OnIslandMouseUp(object sender, MouseButtonEventArgs e)
-    {
-        var wasDragging = _dragging;
-        ReleaseMouseCapture();
-        _pressPoint = null;
-        _dragging = false;
-
-        if (wasDragging)
-        {
-            DragCompleted?.Invoke(this, EventArgs.Empty);
-            e.Handled = true;
-            return;
-        }
-
-        // Bare-island click: double click toggles the battery capsule, single
-        // click opens the media player when a session is active.
         if (e.ClickCount >= 2)
         {
             ViewModel?.ToggleBattery();
@@ -353,16 +288,6 @@ public partial class NotchIsland : UserControl
         else if (e.ClickCount == 1)
         {
             ViewModel?.HandleIslandClick();
-        }
-    }
-
-    private void OnIslandLostMouseCapture(object sender, MouseEventArgs e)
-    {
-        if (_dragging)
-        {
-            _dragging = false;
-            _pressPoint = null;
-            DragCompleted?.Invoke(this, EventArgs.Empty);
         }
     }
 

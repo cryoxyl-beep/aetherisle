@@ -76,4 +76,12 @@ public static class StatusPresenters
 
     /// <summary>Battery display name, trimmed of common noise.</summary>
     public static string EarbudDisplayName(string deviceName) => deviceName.Trim();
+
+    /// <summary>System battery pill text: percent, or empty when unknown.</summary>
+    public static string SystemBatteryText(int? percent) =>
+        percent is { } value ? $"{value}%" : string.Empty;
+
+    /// <summary>Charge fraction (0..1) for battery fill rendering.</summary>
+    public static double SystemBatteryFraction(int? percent) =>
+        percent is { } value ? Math.Clamp(value / 100.0, 0, 1) : 0;
 }

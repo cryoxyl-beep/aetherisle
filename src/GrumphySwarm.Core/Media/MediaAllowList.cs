@@ -21,6 +21,7 @@ public static class MediaAllowList
     public static readonly IReadOnlyList<string> AlbumArtTokens =
     [
         "spotify",
+        "apple",   // Apple Music app (AppleInc.AppleMusicWin…), iTunes, any Apple packaging
         "applemusic",
         "itunes",
         // Web players (music.apple.com). See class remark for the URL caveat.

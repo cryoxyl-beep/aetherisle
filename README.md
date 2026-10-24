@@ -1,133 +1,116 @@
-# Celestia — Dynamic Island for Windows 11
+<div align="center">
 
-**Celestia** is a native Dynamic Island for Windows 11, built with **C# / .NET 10 / WPF** —
-no Electron, no web view, no second UI framework. A pure-black capsule floats at the
-top of your screen with live album art, a real audio-spectrum visualizer, system
-volume/brightness/battery status, a full media player, and Bluetooth earbud battery
-monitoring.
+# 🌘 Aetherisle
 
-> The app assembly is `GrumphySwarm.exe` (the project's original working name);
-> everything else is Celestia.
+### A native Dynamic Island for Windows 11 — living on your desktop, not in a browser.
+
+**C# · .NET 10 · WPF · zero Electron · zero web views**
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-0A84FF.svg)](LICENSE)
+[![.NET](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com)
+[![Platform](https://img.shields.io/badge/Platform-Windows%2011-0078D4)](https://github.com)
+[![UI](https://img.shields.io/badge/UI-WPF-9B4F96)](https://learn.microsoft.com/dotnet/desktop/wpf/)
+[![Tests](https://img.shields.io/badge/tests-94%2F94-30D158)](#testing)
+
+*A pure-black capsule that floats on your screen — with real album art, a live audio
+visualizer, a full media player, volume/brightness/battery glanceables, and Bluetooth
+earbud status. Built like a system component, not a webpage.*
+
+</div>
 
 ---
 
-## What's in this milestone
+## ✨ What it does
 
-### Dynamic Island silhouette (capsule, no flares)
-- The island is one capsule geometry (all four corners rounded) built from
-  unit-tested math (`NotchSilhouetteMath`), shared by fill, content clip,
-  shadow layer and precise `WM_NCHITTEST` hit-testing.
-- Four content layers morph inside one silhouette: **pill → media player /
-  Nook–Agents panel → earbud battery capsule**, with the single-owner
-  transition controller (no competing animations, deterministic interrupts).
+| | Feature | How |
+|---|---|---|
+| 🎵 | **Live media island** | Real SMTC data: title, artist, artwork, transport controls, progress bar with elapsed / remaining — from Spotify, Apple Music, browsers and any app that publishes a media session |
+| 🎨 | **Album art, allow-listed** | Artwork shows for Spotify, Apple Music and web players only — one obvious file to edit ([MediaAllowList.cs](src/GrumphySwarm.Core/Media/MediaAllowList.cs)) |
+| 📊 | **Real audio visualizer** | WASAPI loopback capture + custom FFT — the bars dance with *actual* system audio (radial in the pill, linear in the player) and go flat in silence. No fake animations |
+| 🔊 | **Volume glance** | Icon → live % while you change it → back to icon. Muted = red icon. All event-driven Core Audio |
+| 🔆 | **Brightness glance** | WMI event-driven; DDC/CI fallback for external monitors |
+| 🔋 | **System battery** | Charge %, charging bolt, green/amber/red — between volume and clock |
+| 🎧 | **Earbud battery capsule** | Middle-click anywhere or double-tap the island — Airdopes 138 & Zeb Duke allow-listed, four battery channels polled (AEP × device/container/service + GATT) |
+| 🖱 | **Free repositioning** | **Shift + drag** the island anywhere — in collapsed or expanded mode; position persists across restarts |
+| 👻 | **Shift = ghost mode** | Hold Shift to make the island fully click-through — hover stops expanding it, and clicks reach the browser tab underneath |
+| 📌 | **Pinned state** | Pin the expanded panel; click outside to dismiss |
+| 📅 | **Nook tab** | Media card · mini-calendar (real dates) · pet slot reserved |
+| 🤖 | **Agents tab** | Local agent profiles (create/edit/delete, JSON-persisted) — the runtime dock for what's next |
 
-### Collapsed pill (reference layout)
-- **Allow-listed album art** (left) · volume glyph · transient volume/brightness
-  status (center) · **live audio visualizer bars** (right) · clock.
-- The visualizer is REAL signal processing: WASAPI loopback capture + FFT
-  (`SpectrumAnalyzer`), so bars dance with any system audio and decay to flat
-  in silence. No fake animation.
+## 🚀 Quick start
 
-### Media player expanded view (reference layout)
-Hovering/clicking the pill during playback expands into the player: artwork
-(rounded), title, artist · app, live visualizer, progress bar with elapsed /
-remaining times (real SMTC timeline + 1 s interpolation), and prev /
-play-pause / next / output controls — enabled only when the session supports
-them. No session → the Nook/Agents panel shows instead.
+```powershell
+git clone https://github.com/cryoxyl-beep/aetherisle.git
+cd aetherisle
+dotnet build GrumphySwarm.slnx -c Release
+src\GrumphySwarm.App\bin\Release\net10.0-windows10.0.26100\GrumphySwarm.exe
+```
 
-### Allow-lists (edit in `src/GrumphySwarm.Core/Media/MediaAllowList.cs`)
-- **Album art**: Spotify, Apple Music/iTunes, and browsers as web players
-  (music.apple.com). Browsers don't expose the tab URL to the OS and the app
-  never scrapes windows — so a browser session is trusted as your web player.
-  Every other app shows text only.
-- **Earbuds**: `airdopes 138`, `zeb duke`.
+<details>
+<summary><b>📦 Self-contained publish</b> (no .NET install needed — ~182 MB)</summary>
 
-### Earbud battery capsule
-- **Middle mouse button anywhere**, or **double-tap the island** → capsule with
-  earbuds icon, device name, and a battery ring.
-- Data comes from the same Windows Bluetooth AEP properties the Settings app
-  uses (`IsConnected`, `AepBattery_Level`), push-based via DeviceWatcher with a
-  property-list fallback chain for different Windows builds.
-- Honest hardware caveat: whether a battery percentage exists depends on the
-  earbuds. **Airdopes 138 is detected and shows "Connected" but does not report
-  a battery level over standard Windows properties** — the ring stays empty
-  rather than showing an invented number. Devices that do report it show the
-  green ring.
+```powershell
+dotnet publish src/GrumphySwarm.App/GrumphySwarm.App.csproj `
+  -c Release -r win-x64 --self-contained true -o publish/GrumphySwarm
+```
+</details>
 
-### Everything from earlier milestones still works
-Volume + brightness transients (Core Audio / WMI event-driven), Nook
-(media card · calendar · pet slot) and Agents (local profiles, JSON-persisted,
-editor window) tabs, pinning, tray menu, single instance, file logging.
+## 🎮 Controls
 
-## Project structure
+| Gesture | Action |
+|---|---|
+| **Hover** the island | Expands (media player if something is playing, Nook/Agents otherwise) |
+| **Click** the pill | Jump straight into the media player |
+| **Double-click** / **middle-click anywhere** | Earbud battery capsule |
+| **Shift + left-drag on the island** | Move it anywhere — works collapsed or expanded |
+| **Hold Shift** | Ghost mode: island is click-through and won't expand (perfect for reaching browser tabs underneath) |
+| **Pin** button | Keep the panel open; click outside to unpin |
+| Tray icon → Exit | Clean shutdown |
+
+## 🏗 Architecture
 
 ```
 GrumphySwarm.slnx
-├── src/GrumphySwarm.Core/
-│   ├── Audio/SpectrumAnalyzer.cs      # FFT + playback clock (pure, tested)
-│   ├── Media/MediaAllowList.cs        # the user's allow-lists (edit here)
-│   ├── Layout/                        # capsule math + window placement
-│   ├── Monitors/                      # contracts + transient controller
-│   └── State/ Agents/ Settings/ Time/ Messaging/
-├── src/GrumphySwarm.App/
-│   ├── Controls/NotchIsland.*         # 4-layer island + transition controller
-│   ├── Controls/AudioVisualizerControl.cs · BatteryRingControl.cs
-│   ├── Rendering/NotchSilhouetteBuilder.cs
-│   ├── Services/Audio/                # volume (Core Audio) + loopback FFT
-│   ├── Services/Brightness/ · Bluetooth/ · Media/
-│   └── ViewModels/ Views/ Themes/
-├── tests/GrumphySwarm.Tests/          # 94 xUnit tests
-└── publish/GrumphySwarm/              # self-contained output
+├── src/GrumphySwarm.Core/          # pure, UI-free logic — fully unit-tested
+│   ├── Audio/SpectrumAnalyzer.cs   # hand-rolled FFT + playback clock
+│   ├── Media/MediaAllowList.cs     # ✏️ your allow-lists live here
+│   ├── Layout/                     # capsule geometry + DPI placement math
+│   ├── Monitors/                   # contracts, transient status, presenters
+│   └── State/ Agents/ Settings/ Time/
+├── src/GrumphySwarm.App/           # WPF host (net10.0-windows10.0.26100)
+│   ├── Controls/NotchIsland.*      # 4-layer island + deterministic animator
+│   ├── Services/Audio/             # Core Audio volume + WASAPI loopback FFT
+│   ├── Services/Bluetooth/         # 4-channel earbud battery
+│   ├── Services/Brightness/ Media/ Power/
+│   └── ViewModels/ Views/ Themes/ Interop/
+└── tests/GrumphySwarm.Tests/       # 94 xUnit tests
 ```
 
-## Run / test / publish
+**Native window behavior:** `WS_EX_NOACTIVATE` (never steals keyboard focus), `WS_EX_TOOLWINDOW` (invisible to Alt+Tab), silhouette-exact `WM_NCHITTEST` click-through, per-monitor-v2 DPI, single instance, tray menu, background file logging with 7-day rotation.
+
+## ⚠️ Honest limitations
+
+- **Earbud battery %**: Airdopes 138 exposes no battery through any public Windows channel (AEP device/container/service and GATT Battery Service were all probed live — Windows Settings reads a vendor channel that isn't exposed to apps). The capsule shows "Connected" honestly; if the device or a Windows build ever reports it, the green ring lights up with zero code changes. The **Zeb Duke** may behave differently — try it.
+- **Browser artwork**: browsers don't tell the OS which site is playing, and Aetherisle never scrapes windows — browser sessions are trusted as your web player (music.apple.com). Remove browser tokens in the allow-list to disable.
+- SMTC positions are event-based; the progress bar interpolates by wall clock between reports.
+- No multi-monitor hosting yet; the island lives on the primary display.
+
+## 🧪 Testing
 
 ```powershell
-dotnet build GrumphySwarm.slnx -c Debug
-src\GrumphySwarm.App\bin\Debug\net10.0-windows10.0.26100\GrumphySwarm.exe
-
-dotnet test GrumphySwarm.slnx            # 94 tests
-
-dotnet publish src/GrumphySwarm.App/GrumphySwarm.App.csproj `
-  -c Release -r win-x64 --self-contained true -o publish/GrumphySwarm
-# → publish\GrumphySwarm\GrumphySwarm.exe (~182 MB, no runtime install, no admin)
+dotnet test GrumphySwarm.slnx    # 94/94 — state machine, FFT math, silhouette,
+                                 # allow-lists, playback clock, persistence
 ```
 
-### Controlling the island
+## 🗺 Roadmap
 
-- **Drag** the island anywhere on the screen — the position persists across restarts.
-- **Click** the pill during playback → media player view.
-- **Double-click** the island (or **middle-click anywhere**) → earbud battery capsule.
-- **Hover** → pill expands; leaving collapses it; pin it from the Nook/Agents panel.
+- [ ] Desktop pets 🐾 (the reserved slot is waiting)
+- [ ] Agent runtime + live status feed into the Agents tab
+- [ ] Settings window (delays, modules, allow-list editor)
+- [ ] Composition-powered shadows & multi-monitor islands
 
-## Verified live on this machine (2026-10-24)
+## 📄 License
 
-- Capsule silhouette screenshots (pill, player, battery) — clean edges, flush top.
-- Spotify / Apple Music playing → real artwork in pill AND player, real timeline,
-  transport buttons working, visualizer dancing to actual output.
-- Collapsed center group: volume icon → live % during changes → back; red muted
-  icon; system battery % with charge state; clock; radial visualizer.
-- Island dragging with persisted position.
-- Middle-click **and** double-tap → battery capsule ("Airdopes 138 · Connected").
-- 94/94 tests in Debug and Release, published exe verified.
+[MIT](LICENSE) — © 2026 cryoxyl-beep. Ship it, fork it, make it yours.
 
-## Manual checks worth doing
-
-1. Play music in Chrome at music.apple.com — art should appear (web allow-list).
-2. Play something NOT in the allow-list (e.g. VLC) — text only, no artwork.
-3. Listen for the visualizer reacting to ANY system audio (YouTube, games…).
-4. Connect the Zeb Duke — it should appear in the battery capsule too.
-5. Progress bar advances every second while playing and resyncs on track seek.
-6. Pinning, tray menu, second-launch activation, Alt+Tab exclusion.
-
-## Known limitations / deferred
-
-- Airdopes 138 firmware does not expose battery over standard Windows
-  properties → capsule shows "Connected" only (never a fabricated %).
-- Browser tab URLs are invisible to the OS; the web-player allow-list trusts
-  the browser generally (documented in `MediaAllowList`).
-- SMTC timeline is event-based; position advances by wall-clock between events
-  (resyncs on every report). Seeking is not exposed yet.
-- Media expanded view replaces Nook/Agents while a session is active; pin the
-  panel before playing (or stop playback) to reach the tabs.
-- Agent runtime, desktop pets, settings window: future milestones.
+> The executable keeps its original working name `GrumphySwarm.exe` — everything else here is Aetherisle.

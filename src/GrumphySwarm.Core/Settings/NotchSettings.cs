@@ -29,4 +29,9 @@ public sealed class NotchSettings
 
     /// <summary>User-dragged vertical offset from the top edge, in DIP.</summary>
     public double DragOffsetY { get; set; }
+
+    /// <summary>Saved island position (absolute window left/top in DIP); null values fall back to the offset fields.</summary>
+    public double? IslandLeftDip { get; set; }
+
+    public double? IslandTopDip { get; set; }
 }

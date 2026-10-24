@@ -48,17 +48,6 @@ public partial class NotchWindow : Window
         Island.MouseEnter += (_, _) => _viewModel.PointerEntered();
         Island.MouseLeave += (_, _) => _viewModel.PointerLeft();
 
-        // Free island repositioning: the island reports DIP deltas; the window
-        // applies them (clamped) via SetWindowPos and persists on release.
-        Island.DragDelta += (_, delta) =>
-        {
-            _viewModel.UpdateDragOffset(
-                _viewModel.DragOffsetX + delta.X,
-                _viewModel.DragOffsetY + delta.Y);
-            RepositionToMonitor("island dragged");
-        };
-        Island.DragCompleted += (_, _) => _viewModel.SaveDragOffset();
-
         Deactivated += (_, _) => _logger.LogInformation(
             "Window deactivated (state {State}); pinned state is preserved intentionally.",
             _viewModel.State);
@@ -209,12 +198,11 @@ public partial class NotchWindow : Window
     }
 
     /// <summary>
-    /// Returns true (with a result) when the point is OUTSIDE the island
-    /// silhouette: those points become HTTRANSPARENT so mouse events pass
-    /// through the invisible window to apps underneath. Points inside the
-    /// silhouette fall through to WPF's default handling. The test uses the
-    /// exact custom silhouette geometry, so the transparent corner wedges
-    /// around the flares are genuinely click-through.
+    /// Returns true (with a result) when the point must NOT hit the island:
+    ///  - outside the silhouette (always click-through), or
+    ///  - ANYWHERE while Shift is held — the island becomes fully click-through
+    ///    so it stops expanding on hover and never blocks browser tabs beneath.
+    /// Points inside the silhouette fall through to WPF's default handling.
     /// </summary>
     private bool HandleNcHitTest(IntPtr lParam, out IntPtr result)
     {
@@ -223,6 +211,12 @@ public partial class NotchWindow : Window
         if (!IsLoaded || Island.ActualWidth <= 0 || Island.ActualHeight <= 0)
         {
             return false;
+        }
+
+        if (NativeMethods.IsShiftHeld())
+        {
+            result = new IntPtr(NativeMethods.HTTRANSPARENT);
+            return true;
         }
 
         try
@@ -249,12 +243,19 @@ public partial class NotchWindow : Window
 
     // --------------------------------------------- global mouse hook (always on)
     //
-    // One permanent low-level hook serves two features:
-    //   - Middle button anywhere → toggle the earbud battery capsule
-    //     (the notch window is non-activating, so a normal handler would only
-    //     see clicks that land exactly on it).
+    // One permanent low-level hook serves three features:
+    //   - SHIFT + left-click-drag starting on the island → reposition the
+    //     island (works even in collapsed mode; the events are swallowed so
+    //     neither the island nor apps beneath see the drag — no expand/collapse
+    //     thrash).
+    //   - Middle button anywhere → toggle the earbud battery capsule.
     //   - Left/right click outside the island while PINNED → dismiss the panel.
-    // The hook never blocks the chain and only queues work to the UI thread.
+    // The hook only ever swallows input for the shift-drag gesture.
+
+    private bool _shiftDragging;
+    private Point _shiftDragOriginScreen;
+    private double _shiftDragStartOffsetX;
+    private double _shiftDragStartOffsetY;
 
     private void InstallDismissalAndMiddleClickHook()
     {
@@ -272,11 +273,11 @@ public partial class NotchWindow : Window
 
         if (_mouseHook == IntPtr.Zero)
         {
-            _logger.LogWarning("Failed to install mouse hook ({Error}); middle-click battery and pinned outside-dismiss are disabled.", Marshal.GetLastWin32Error());
+            _logger.LogWarning("Failed to install mouse hook ({Error}); shift-drag, middle-click battery and pinned outside-dismiss are disabled.", Marshal.GetLastWin32Error());
         }
         else
         {
-            _logger.LogInformation("Global mouse hook active (middle-click battery, pinned outside-dismiss).");
+            _logger.LogInformation("Global mouse hook active (shift-drag, middle-click battery, pinned outside-dismiss).");
         }
     }
 
@@ -285,18 +286,54 @@ public partial class NotchWindow : Window
         if (code >= 0)
         {
             var message = wParam.ToInt64();
+            var data = Marshal.PtrToStructure<NativeMethods.MSLLHOOKSTRUCT>(lParam);
+            var screenPoint = new Point(data.pt.X, data.pt.Y);
+
             switch (message)
             {
+                case NativeMethods.WM_LBUTTONDOWN when NativeMethods.IsShiftHeld() && IsScreenPointOverIsland(screenPoint):
+                    // Begin the shift-drag gesture and swallow this click so
+                    // nothing beneath reacts (the window itself is fully
+                    // click-through while Shift is held).
+                    _shiftDragging = true;
+                    _shiftDragOriginScreen = screenPoint;
+                    _shiftDragStartOffsetX = _viewModel.DragOffsetX;
+                    _shiftDragStartOffsetY = _viewModel.DragOffsetY;
+                    _logger.LogInformation("Shift-drag started at {X},{Y} (offset {OX},{OY}).", screenPoint.X, screenPoint.Y, _shiftDragStartOffsetX, _shiftDragStartOffsetY);
+                    return new IntPtr(1);
+
+                case NativeMethods.WM_MOUSEMOVE when _shiftDragging:
+                {
+                    var scaleX = 1.0;
+                    var scaleY = 1.0;
+                    if (PresentationSource.FromVisual(this)?.CompositionTarget is { } target)
+                    {
+                        var scale = target.TransformToDevice;
+                        scaleX = scale.M11;
+                        scaleY = scale.M22;
+                    }
+
+                    var deltaX = (screenPoint.X - _shiftDragOriginScreen.X) / scaleX;
+                    var deltaY = (screenPoint.Y - _shiftDragOriginScreen.Y) / scaleY;
+
+                    _viewModel.UpdateDragOffset(
+                        _shiftDragStartOffsetX + deltaX,
+                        _shiftDragStartOffsetY + deltaY);
+                    Dispatcher.BeginInvoke(() => RepositionToMonitor("island dragged"));
+                    return new IntPtr(1);
+                }
+
+                case NativeMethods.WM_LBUTTONUP when _shiftDragging:
+                    _shiftDragging = false;
+                    _viewModel.SaveDragOffset();
+                    return new IntPtr(1);
+
                 case NativeMethods.WM_MBUTTONDOWN:
                     // Toggle the battery capsule on middle click, anywhere.
                     Dispatcher.BeginInvoke(() => _viewModel.ToggleBattery());
                     break;
 
                 case NativeMethods.WM_LBUTTONDOWN or NativeMethods.WM_RBUTTONDOWN:
-                {
-                    var data = Marshal.PtrToStructure<NativeMethods.MSLLHOOKSTRUCT>(lParam);
-                    var screenPoint = new Point(data.pt.X, data.pt.Y);
-
                     // Never block the hook chain: decide later on the UI thread.
                     Dispatcher.BeginInvoke(() =>
                     {
@@ -311,11 +348,35 @@ public partial class NotchWindow : Window
                         }
                     });
                     break;
-                }
             }
         }
 
         return NativeMethods.CallNextHookEx(_mouseHook, code, wParam, lParam);
+    }
+
+    /// <summary>Island screen-rect hit test for the shift-drag start (hook thread = UI thread).</summary>
+    private bool IsScreenPointOverIsland(Point screenPointPhysical)
+    {
+        try
+        {
+            var islandTopLeft = Island.PointToScreen(new Point(0, 0));
+            double scaleX = 1, scaleY = 1;
+            if (PresentationSource.FromVisual(this)?.CompositionTarget is { } target)
+            {
+                var scale = target.TransformToDevice;
+                scaleX = scale.M11;
+                scaleY = scale.M22;
+            }
+
+            return screenPointPhysical.X >= islandTopLeft.X
+                && screenPointPhysical.Y >= islandTopLeft.Y
+                && screenPointPhysical.X <= islandTopLeft.X + (Island.ActualWidth * scaleX)
+                && screenPointPhysical.Y <= islandTopLeft.Y + (Island.ActualHeight * scaleY);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private bool IsPointOverIsland(Point screenPointPhysical)
