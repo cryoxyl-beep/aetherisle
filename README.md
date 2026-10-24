@@ -47,6 +47,29 @@ Windows has no Dynamic Island — and the usual workarounds all hurt. Aetherisle
 
 ---
 
+## 📸 Previews — feature by feature
+
+**1 — The island (collapsed pill).** The everyday state: allow-listed album art on the
+left, volume icon (live % while adjusting, red when muted), system battery with charge
+state, 12-hour clock, and the radial audio visualizer reacting to real system sound.
+Drag it anywhere with **Shift + left-drag**.
+
+![1 — The island pill](docs/previews/1-island-pill.png)
+
+**2 — The media player (hover / click while playing).** Real SMTC data: artwork, title,
+artist · app, live waveform, progress bar with elapsed / remaining, and prev / play-pause
+/ next transport that only enables what the session supports.
+
+![2 — The media player](docs/previews/2-media-player.png)
+
+**3 — The earbud battery capsule (middle-click or double-tap).** The same
+Hands-Free-Profile battery Windows Settings reads — 3D device art, connection state and
+the percentage right inside the ring. Allow-listed to your own devices.
+
+![3 — Earbud battery capsule](docs/previews/3-earbud-battery.png)
+
+---
+
 ## ✨ Feature tour
 
 | | Feature | How |
