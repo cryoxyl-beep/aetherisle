@@ -10,7 +10,12 @@
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2011-0078D4)](https://github.com)
 [![UI](https://img.shields.io/badge/UI-WPF-9B4F96)](https://learn.microsoft.com/dotnet/desktop/wpf/)
-[![Tests](https://img.shields.io/badge/tests-94%2F94-30D158)](#testing)
+[![Tests](https://img.shields.io/badge/tests-96%2F96-30D158)](#testing)
+[![Release](https://img.shields.io/badge/download-v0.3.1-FF2D55)](https://github.com/cryoxyl-beep/aetherisle/releases/latest)
+
+### ⬇️ [**Download Aetherisle.exe**](https://github.com/cryoxyl-beep/aetherisle/releases/latest/download/Aetherisle.exe) — double-click and run. No install, no .NET, no admin.
+
+*(or grab the [full build as a zip](https://github.com/cryoxyl-beep/aetherisle/releases/latest/download/Aetherisle-win-x64.zip))*
 
 *A pure-black capsule that floats on your screen — with real album art, a live audio
 visualizer, a full media player, volume/brightness/battery glanceables, and Bluetooth
