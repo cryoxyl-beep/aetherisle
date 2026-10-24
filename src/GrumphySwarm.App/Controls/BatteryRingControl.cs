@@ -72,11 +72,14 @@ public sealed class BatteryRingControl : FrameworkElement
         // Track: full circle.
         drawingContext.DrawEllipse(null, trackPen, center, radius, radius);
 
-        // Progress arc.
+        // Progress arc (built around the origin; translate to the center so it
+        // sits exactly on the track ring).
         if (Percent is { } percent)
         {
             Tracker.Geometry(radius, percent, out var geometry);
+            drawingContext.PushTransform(new TranslateTransform(center.X, center.Y));
             drawingContext.DrawGeometry(null, fillPen, geometry);
+            drawingContext.Pop();
         }
     }
 
@@ -108,7 +111,6 @@ public sealed class BatteryRingControl : FrameworkElement
             if (percent == 0)
             {
                 // Degenerate: a zero-length line keeps the round cap visible.
-                var point = new Point(radius, 0);
                 context.BeginFigure(new Point(radius, 0), false, false);
                 context.LineTo(new Point(radius + 0.01, 0), true, false);
             }

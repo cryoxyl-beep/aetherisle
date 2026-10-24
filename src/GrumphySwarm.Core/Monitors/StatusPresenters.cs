@@ -7,14 +7,15 @@ namespace GrumphySwarm.Core.Monitors;
 /// </summary>
 public static class StatusPresenters
 {
-    // Segoe Fluent Icons / MDL2 code points.
+    // Segoe Fluent Icons / MDL2 code points (verified against the font:
+    // E76C is Next — E76D is a pencil glyph on current font versions).
     public const string VolumeGlyphOn = "\uE767";
     public const string VolumeGlyphMuted = "\uE74F";
     public const string BrightnessGlyph = "\uE706";
     public const string PlayGlyph = "\uE768";
     public const string PauseGlyph = "\uE769";
     public const string PreviousGlyph = "\uE76B";
-    public const string NextGlyph = "\uE76D";
+    public const string NextGlyph = "\uE76C";
     public const string MusicGlyph = "\uE8D6";
     public const string AddGlyph = "\uE710";
 

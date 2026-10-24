@@ -188,19 +188,16 @@
                                Typography.NumeralAlignment="Tabular" />
                 </StackPanel>
 
-                <!-- next track shortcut (replaces the old radial visualizer here;
-                     the full visualizer lives in the expanded player) -->
-                <Button Grid.Column="2"
-                        Style="{StaticResource TransportButtonStyle}"
-                        Command="{Binding NextTrackCommand}"
-                        ToolTip="Next track"
-                        Content="{x:Static app:StatusGlyphs.Next}"
-                        Margin="0,0,12,0"
-                        VerticalAlignment="Center">
-                    <Button.Visibility>
-                        <Binding Path="CanNext" Converter="{StaticResource BooleanToVisibilityConverter}" FallbackValue="Collapsed" />
-                    </Button.Visibility>
-                </Button>
+                <!-- live audio: radial lines around a circle (collapsed pill) -->
+                <controls:AudioVisualizerControl Grid.Column="2"
+                                                 Monitor="{Binding Spectrum}"
+                                                 BarCount="16"
+                                                 Mode="RadialLines"
+                                                 Width="30"
+                                                 Height="30"
+                                                 Margin="0,0,9,0"
+                                                 BarBrush="{StaticResource TextPrimaryBrush}"
+                                                 VerticalAlignment="Center" />
             </Grid>
 
             <!-- ==================== expanded panel (Nook / Agents) ==================== -->
@@ -595,7 +592,7 @@
                                Typography.NumeralAlignment="Tabular" />
                 </Grid>
 
-                <!-- transport row -->
+                <!-- transport row: prev / play-pause / next -->
                 <StackPanel Grid.Row="2"
                             Orientation="Horizontal"
                             HorizontalAlignment="Center"
@@ -623,12 +620,6 @@
                             IsEnabled="{Binding CanNext}"
                             Command="{Binding NextTrackCommand}"
                             Content="{x:Static app:StatusGlyphs.Next}" />
-                    <TextBlock Text="&#xEC15;"
-                               FontFamily="{StaticResource IconFontFamily}"
-                               FontSize="15"
-                               Foreground="{StaticResource TextSecondaryBrush}"
-                               Margin="26,0,0,0"
-                               VerticalAlignment="Center" />
                 </StackPanel>
             </Grid>
 
