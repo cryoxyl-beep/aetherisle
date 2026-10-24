@@ -34,6 +34,15 @@ public partial class App : Application
         // Logging first so even early failures are on disk.
         _loggerProvider = new FileLoggerProvider();
 
+        // Diagnostic mode: dump every candidate Bluetooth battery source to the
+        // log and exit. Usage: GrumphySwarm.exe --bt-diagnostic
+        if (e.Args.Contains("--bt-diagnostic", StringComparer.OrdinalIgnoreCase))
+        {
+            RunBluetoothDiagnostic();
+            Shutdown(0);
+            return;
+        }
+
         // Global exception sinks: nothing should ever terminate the notch silently.
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
@@ -159,6 +168,85 @@ public partial class App : Application
         }
     }
 
+    /// <summary>
+    /// One-shot Bluetooth battery source dump: enumerates PnP devnodes and
+    /// containers with every battery-ish property key and logs any object that
+    /// carries a value or an allow-listed name.
+    /// </summary>
+    private void RunBluetoothDiagnostic()
+    {
+        var logger = _loggerProvider.CreateLogger("BtDiagnostic");
+        logger.LogInformation("Bluetooth battery diagnostic starting.");
+
+        var hfpKeys = new[]
+        {
+            "{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2",
+            "{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 3",
+        };
+
+        var aepKeys = new[]
+        {
+            "System.Devices.AepBattery_Level",
+            "{83DA6326-97A6-4088-9453-A1923F573B29} 4",
+        };
+
+        foreach (var (kind, keys) in new[]
+                 {
+                    (global::Windows.Devices.Enumeration.DeviceInformationKind.Device, hfpKeys),
+                    (global::Windows.Devices.Enumeration.DeviceInformationKind.DeviceContainer, hfpKeys),
+                    (global::Windows.Devices.Enumeration.DeviceInformationKind.AssociationEndpoint, aepKeys),
+                    (global::Windows.Devices.Enumeration.DeviceInformationKind.AssociationEndpointContainer, aepKeys),
+                 })
+        {
+            try
+            {
+                var results = global::Windows.Devices.Enumeration.DeviceInformation.FindAllAsync(
+                    string.Empty,
+                    keys,
+                    kind).GetAwaiter().GetResult();
+
+                logger.LogInformation("[{Kind}] {Count} object(s).", kind, results.Count);
+
+                foreach (var device in results)
+                {
+                    var hasValue = false;
+                    foreach (var property in device.Properties)
+                    {
+                        if (property.Value is not null)
+                        {
+                            hasValue = true;
+                        }
+                    }
+
+                    var nameMatches = device.Name?.Contains("airdopes", StringComparison.OrdinalIgnoreCase) == true
+                        || device.Name?.Contains("zeb", StringComparison.OrdinalIgnoreCase) == true
+                        || device.Name?.Contains("boat", StringComparison.OrdinalIgnoreCase) == true;
+
+                    if (!hasValue && !nameMatches)
+                    {
+                        continue;
+                    }
+
+                    var detail = string.Join(
+                        ", ",
+                        device.Properties.Where(p => p.Value is not null)
+                            .Select(p => $"{p.Key}={p.Value}"));
+                    logger.LogInformation(
+                        "  {Name} | {Id} | {Properties}",
+                        device.Name,
+                        device.Id,
+                        detail);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning("[{Kind}] failed: {Message}", kind, ex.Message);
+            }
+        }
+
+        logger.LogInformation("Bluetooth battery diagnostic complete.");
+    }
+
     private void ShutdownFromTray()
     {
         var logger = _services.GetRequiredService<ILogger<App>>();
@@ -168,6 +256,14 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        if (_services is null)
+        {
+            // Diagnostic mode exits before composition is built.
+            _loggerProvider?.Dispose();
+            base.OnExit(e);
+            return;
+        }
+
         try
         {
             _settingsStore.Save(_settings);

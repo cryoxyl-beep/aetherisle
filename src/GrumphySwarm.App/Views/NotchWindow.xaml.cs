@@ -354,12 +354,17 @@ public partial class NotchWindow : Window
         return NativeMethods.CallNextHookEx(_mouseHook, code, wParam, lParam);
     }
 
-    /// <summary>Island screen-rect hit test for the shift-drag start (hook thread = UI thread).</summary>
+    /// <summary>
+    /// Shift-drag grab test: the island's screen rect inflated by a generous
+    /// 40px margin — easy to grab (never stubborn) while clicks further away
+    /// still pass through to apps beneath during Shift ghost mode.
+    /// (Hook thread = UI thread.)
+    /// </summary>
     private bool IsScreenPointOverIsland(Point screenPointPhysical)
     {
         try
         {
-            var islandTopLeft = Island.PointToScreen(new Point(0, 0));
+            var topLeft = Island.PointToScreen(new Point(0, 0));
             double scaleX = 1, scaleY = 1;
             if (PresentationSource.FromVisual(this)?.CompositionTarget is { } target)
             {
@@ -368,10 +373,14 @@ public partial class NotchWindow : Window
                 scaleY = scale.M22;
             }
 
-            return screenPointPhysical.X >= islandTopLeft.X
-                && screenPointPhysical.Y >= islandTopLeft.Y
-                && screenPointPhysical.X <= islandTopLeft.X + (Island.ActualWidth * scaleX)
-                && screenPointPhysical.Y <= islandTopLeft.Y + (Island.ActualHeight * scaleY);
+            const double margin = 40;
+            var width = Island.ActualWidth * scaleX;
+            var height = Island.ActualHeight * scaleY;
+
+            return screenPointPhysical.X >= topLeft.X - margin
+                && screenPointPhysical.Y >= topLeft.Y - margin
+                && screenPointPhysical.X <= topLeft.X + width + margin
+                && screenPointPhysical.Y <= topLeft.Y + height + margin;
         }
         catch
         {

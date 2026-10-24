@@ -54,9 +54,22 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
     private readonly List<Windows.Devices.Bluetooth.GenericAttributeProfile.GattDeviceService> _gattServiceHolders = [];
     private readonly HashSet<string> _gattAttempted = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// HFP battery property exposed on Bluetooth headset PnP devnodes
+    /// (DEVPKEY used by headset battery tools; raw fmtid/pid form).
+    /// </summary>
+    private static readonly string HfpBatteryKey = "{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2";
+
+    private static readonly string[] PnpProperties =
+    [
+        HfpBatteryKey,
+        "{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 3",
+    ];
+
     private DeviceWatcher? _watcher;
     private DeviceWatcher? _containerWatcher;
     private DeviceWatcher? _serviceWatcher;
+    private DeviceWatcher? _pnpWatcher;
     private string[] _activeProperties = FullProperties;
     private bool _disposed;
 
@@ -165,11 +178,73 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
                 _serviceWatcher = null;
             }
 
+            // HFP route: classic headsets report battery on their PnP devnode
+            // through {104EA319-…} 2 — the same value the Settings flyout
+            // renders. Names on devnodes look like "Airdopes 138 Hands-Free AG",
+            // so the allow-list's contains-match still applies.
+            try
+            {
+                _pnpWatcher = DeviceInformation.CreateWatcher(
+                    string.Empty,
+                    PnpProperties,
+                    DeviceInformationKind.Device);
+                _pnpWatcher.Added += OnPnpDeviceEvent;
+                _pnpWatcher.Start();
+                _logger.LogInformation("Bluetooth: PnP HFP battery watcher active.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Bluetooth: PnP watcher unavailable.");
+                _pnpWatcher = null;
+            }
+
             IsSupported = true;
             _logger.LogInformation(
                 "Bluetooth: allow-listed accessory monitoring active (all AEPs, event-driven, {PropertyCount} properties watched).",
                 _activeProperties.Length);
         }
+    }
+
+    /// <summary>PnP devnode battery (HFP). Devnode names carry the model name,
+    /// possibly with a profile suffix ("Airdopes 138 Hands-Free AG").</summary>
+    private void OnPnpDeviceEvent(DeviceWatcher sender, DeviceInformation info)
+    {
+        var battery = ReadBatteryPercent(info.Properties);
+        if (battery is null || !MediaAllowList.IsEarbudAllowed(info.Name))
+        {
+            return;
+        }
+
+        var percent2 = battery.Value;
+        lock (_gate)
+        {
+            var name = info.Name;
+            var applied = false;
+
+            // Merge into any existing entry of the same physical device: PnP
+            // names carry profile suffixes ("Airdopes 138 Hands-Free AG"), so
+            // match on either name containing the other.
+            foreach (var key in _devices.Keys.ToList())
+            {
+                var existing = _devices[key].Name;
+                if (string.Equals(existing, name, StringComparison.OrdinalIgnoreCase)
+                    || name.Contains(existing, StringComparison.OrdinalIgnoreCase)
+                    || existing.Contains(name, StringComparison.OrdinalIgnoreCase))
+                {
+                    _devices[key] = _devices[key] with { BatteryPercent = percent2, IsConnected = true };
+                    applied = true;
+                }
+            }
+
+            // …or record the devnode itself (battery implies connected).
+            if (!applied)
+            {
+                _devices["pnp:" + info.Id] = new EarbudStatus(name, percent2, true);
+            }
+        }
+
+        _logger.LogInformation("Bluetooth: {Name} battery {Percent}% via PnP HFP property.", info.Name, percent2);
+        Publish();
     }
 
     private void OnWatcherAdded(DeviceWatcher sender, DeviceInformation info)
@@ -525,11 +600,13 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
 
     private static int? ReadBatteryPercent(IReadOnlyDictionary<string, object> properties)
     {
-        // Accept whichever key form the system used for the battery property.
+        // Accept whichever key form the system used for the battery property:
+        // the AEP canonical name, its raw fmtid/pid form, or the HFP devnode key.
         foreach (var key in properties.Keys)
         {
             var isBatteryKey = key.Contains("AepBattery", StringComparison.OrdinalIgnoreCase)
-                || key.StartsWith("{83DA6326-97A6-4088-9453-A1923F573B29}", StringComparison.OrdinalIgnoreCase);
+                || key.StartsWith("{83DA6326-97A6-4088-9453-A1923F573B29}", StringComparison.OrdinalIgnoreCase)
+                || key.StartsWith("{104EA319-6EE2-4701-BD47-8DDBF425BBE5}", StringComparison.OrdinalIgnoreCase);
             if (!isBatteryKey)
             {
                 continue;
@@ -596,7 +673,7 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
 
             _disposed = true;
 
-            foreach (var watcher in new[] { _watcher, _containerWatcher, _serviceWatcher })
+            foreach (var watcher in new[] { _watcher, _containerWatcher, _serviceWatcher, _pnpWatcher })
             {
                 if (watcher is null)
                 {

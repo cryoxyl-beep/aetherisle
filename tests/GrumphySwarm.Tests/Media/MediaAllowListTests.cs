@@ -28,8 +28,10 @@ public class MediaAllowListTests
     [InlineData("Airdopes 138", true)]
     [InlineData("AIRDOPES 138 (stereo)", true)] // case-insensitive
     [InlineData("boAt Airdopes 138", true)]
+    [InlineData("Airdopes 138 Hands-Free AG", true)] // PnP devnode name
     [InlineData("Zeb Duke", true)]
-    [InlineData("ZEB-Duke Headphones", false)] // token is "zeb duke", dash breaks the match
+    [InlineData("ZEB-DUKE Headphones", true)] // dashed spelling
+    [InlineData("Headset (ZEB-DUKE Hands-Free)", true)] // audio-endpoint name
     [InlineData("Zeb Duke 2", true)]
     [InlineData("WH-1000XM5", false)]
     [InlineData(null, false)]

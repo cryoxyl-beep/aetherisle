@@ -70,10 +70,11 @@ public class NotchCalendarTests
 public class NotchClockTests
 {
     [Fact]
-    public void Time_is_24h_with_culture_separators()
+    public void Time_is_12h_with_ampm()
     {
-        Assert.Equal("20:45", NotchClock.FormatTime(new DateTime(2026, 10, 24, 20, 45, 0), CultureInfo.GetCultureInfo("en-US")));
-        Assert.Equal("00:05", NotchClock.FormatTime(new DateTime(2026, 10, 24, 0, 5, 0), CultureInfo.GetCultureInfo("en-US")));
+        Assert.Equal("8:45 PM", NotchClock.FormatTime(new DateTime(2026, 10, 24, 20, 45, 0), CultureInfo.GetCultureInfo("en-US")));
+        Assert.Equal("12:05 AM", NotchClock.FormatTime(new DateTime(2026, 10, 24, 0, 5, 0), CultureInfo.GetCultureInfo("en-US")));
+        Assert.Equal("11:59 AM", NotchClock.FormatTime(new DateTime(2026, 10, 24, 11, 59, 0), CultureInfo.GetCultureInfo("en-US")));
     }
 
     [Fact]

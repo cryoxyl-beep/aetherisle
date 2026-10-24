@@ -33,11 +33,15 @@ public static class MediaAllowList
         "opera",
     ];
 
-    /// <summary>Lowercase substrings matched against the Bluetooth device name.</summary>
+    /// <summary>Lowercase substrings matched against the Bluetooth device name
+    /// (covers "Zeb Duke", "ZEB-DUKE" and PnP names like "Airdopes 138 Hands-Free AG").</summary>
     public static readonly IReadOnlyList<string> EarbudNameTokens =
     [
         "airdopes 138",
+        "airdopes138",
         "zeb duke",
+        "zeb-duke",
+        "zebduke",
     ];
 
     /// <summary>True when artwork may be shown for this SMTC source.</summary>

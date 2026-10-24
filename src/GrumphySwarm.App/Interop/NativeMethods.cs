@@ -113,6 +113,10 @@ internal static class NativeMethods
     /// <summary>True while either Shift key is held.</summary>
     internal static bool IsShiftHeld() => (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
 
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+
     [StructLayout(LayoutKind.Sequential)]
     internal struct MSLLHOOKSTRUCT
     {
