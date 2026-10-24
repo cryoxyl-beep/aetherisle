@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GrumphySwarm.App/GrumphySwarm.App.csproj" />
+    <Project Path="src/GrumphySwarm.Core/GrumphySwarm.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GrumphySwarm.Tests/GrumphySwarm.Tests.csproj" />
+  </Folder>
+</Solution>

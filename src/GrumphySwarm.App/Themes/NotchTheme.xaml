@@ -1,0 +1,317 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:app="clr-namespace:GrumphySwarm.App">
+
+    <!-- ================================================================ fonts -->
+    <!-- SF Pro-inspired scale on Windows-native Segoe UI Variable:
+         Display for headings/numbers (optical size tuned), Text for body,
+         Fluent Icons for glyphs. -->
+
+    <FontFamily x:Key="PrimaryFontFamily">Segoe UI Variable Display, Segoe UI</FontFamily>
+    <FontFamily x:Key="BodyFontFamily">Segoe UI Variable Text, Segoe UI Variable, Segoe UI</FontFamily>
+    <FontFamily x:Key="IconFontFamily">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+    <!-- =============================================================== colors -->
+
+    <SolidColorBrush x:Key="IslandBackgroundBrush" Color="#000000" />
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F5F5F7" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#98989F" />
+    <SolidColorBrush x:Key="TextTertiaryBrush" Color="#6E6E76" />
+    <SolidColorBrush x:Key="ChipBackgroundBrush" Color="#1C1C1F" />
+    <SolidColorBrush x:Key="ChipHoverBrush" Color="#26262B" />
+    <SolidColorBrush x:Key="ChipPressedBrush" Color="#2E2E34" />
+    <SolidColorBrush x:Key="ModuleBackgroundBrush" Color="#121215" />
+    <SolidColorBrush x:Key="ModuleBorderBrush" Color="#212126" />
+    <SolidColorBrush x:Key="ReservedBackgroundBrush" Color="#0F0F13" />
+    <SolidColorBrush x:Key="HairlineBrush" Color="#26262B" />
+    <SolidColorBrush x:Key="AccentBlueBrush" Color="#0A84FF" />
+    <SolidColorBrush x:Key="AccentGreenBrush" Color="#30D158" />
+
+    <!-- Subtle inner top highlight, like the macOS notch light catch -->
+    <LinearGradientBrush x:Key="TopHighlightBrush" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#00FFFFFF" Offset="0" />
+        <GradientStop Color="#1FFFFFFF" Offset="0.5" />
+        <GradientStop Color="#00FFFFFF" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- The Grumphy "swarm" glyph: three circles (16x14 box) -->
+    <StreamGeometry x:Key="SwarmGlyphGeometry">M5,4.5 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0 M1.5,11 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0 M8.5,11 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0</StreamGeometry>
+
+    <!-- =========================================================== converters -->
+
+    <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    <app:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+    <app:TaskTypeConverter x:Key="TaskTypeConverter" />
+    <app:FractionToStarConverter x:Key="FractionToStarConverter" />
+    <app:FractionRemainderConverter x:Key="FractionRemainderConverter" />
+
+    <!-- ====================================================== text styles -->
+
+    <!-- Collapsed pill value (clock / transient percent) -->
+    <Style x:Key="PillTimeStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    </Style>
+
+    <!-- Section caption -->
+    <Style x:Key="CaptionStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontSize" Value="10.5" />
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+    </Style>
+
+    <Style x:Key="CaptionStrongStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    </Style>
+
+    <Style x:Key="MicroCaptionStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontSize" Value="9.5" />
+        <Setter Property="Foreground" Value="{StaticResource TextTertiaryBrush}" />
+    </Style>
+
+    <!-- Media card -->
+    <Style x:Key="MediaTitleStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    </Style>
+
+    <!-- Calendar module -->
+    <Style x:Key="MonthStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource PrimaryFontFamily}" />
+        <Setter Property="FontSize" Value="22" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    </Style>
+
+    <Style x:Key="DayHeaderStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontSize" Value="8.5" />
+        <Setter Property="Foreground" Value="{StaticResource TextTertiaryBrush}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="DayNumberStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontSize" Value="10.5" />
+        <Setter Property="Foreground" Value="#CFCFD4" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Reserved / avatar module -->
+    <Style x:Key="ReservedTitleStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="#CFCFD4" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="ReservedCaptionStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontSize" Value="9.5" />
+        <Setter Property="Foreground" Value="{StaticResource TextTertiaryBrush}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Agents -->
+    <Style x:Key="AgentNameStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    </Style>
+
+    <!-- Module cards -->
+    <Style x:Key="ModuleCardStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource ModuleBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource ModuleBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="Height" Value="104" />
+        <Setter Property="Padding" Value="14,10" />
+    </Style>
+
+    <Style x:Key="ReservedCardStyle" TargetType="Border" BasedOn="{StaticResource ModuleCardStyle}">
+        <Setter Property="Background" Value="{StaticResource ReservedBackgroundBrush}" />
+    </Style>
+
+    <Style x:Key="AgentRowStyle" TargetType="Border">
+        <Setter Property="Background" Value="#101014" />
+        <Setter Property="BorderBrush" Value="{StaticResource ModuleBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="12,7" />
+        <Setter Property="Margin" Value="0,0,0,6" />
+    </Style>
+
+    <!-- ============================================================ controls -->
+
+    <!-- Tab chip: a RadioButton that looks like a Dynamic Island tab toggle -->
+    <Style x:Key="TabChipStyle" TargetType="RadioButton">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Bd"
+                            Background="Transparent"
+                            CornerRadius="9"
+                            Padding="12,6">
+                        <TextBlock x:Name="Label"
+                                   Text="{TemplateBinding Content}"
+                                   FontFamily="{StaticResource BodyFontFamily}"
+                                   FontSize="12.5"
+                                   FontWeight="SemiBold"
+                                   Foreground="{TemplateBinding Foreground}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource ChipBackgroundBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource ChipHoverBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Icon button: never focusable, so clicking it cannot steal keyboard focus -->
+    <Style x:Key="IconButtonStyle" TargetType="Button">
+        <Setter Property="Width" Value="30" />
+        <Setter Property="Height" Value="30" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource IconFontFamily}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="8">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource ChipHoverBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource ChipPressedBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="MiniIconButtonStyle" TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+        <Setter Property="Width" Value="24" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="FontSize" Value="11" />
+    </Style>
+
+    <Style x:Key="TransportButtonStyle" TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+        <Setter Property="Width" Value="28" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <!-- Editor window (agents): dark field styling -->
+    <Style x:Key="EditorLabelStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontSize" Value="11.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+        <Setter Property="Margin" Value="0,12,0,5" />
+    </Style>
+
+    <Style x:Key="EditorTextBoxStyle" TargetType="TextBox">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="Background" Value="#131317" />
+        <Setter Property="BorderBrush" Value="{StaticResource ModuleBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="8,7" />
+        <Setter Property="CaretBrush" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="SelectionBrush" Value="{StaticResource AccentBlueBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8">
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="#3A3A42" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="EditorPrimaryButtonStyle" TargetType="Button">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Background" Value="{StaticResource AccentBlueBrush}" />
+        <Setter Property="Padding" Value="16,8" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="9">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#3B9BFF" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="EditorSecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource EditorPrimaryButtonStyle}">
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="Background" Value="{StaticResource ChipBackgroundBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="9">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource ChipHoverBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

@@ -1,0 +1,34 @@
+<Window x:Class="GrumphySwarm.App.Views.NotchWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:GrumphySwarm.App.Controls"
+        Title="Grumphy Swarm Notch"
+        Width="780"
+        Height="252"
+        WindowStartupLocation="Manual"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        Focusable="False"
+        Topmost="True"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+
+    <!--
+      The window spans the full expanded-panel area plus shadow slack. Everything
+      outside the island is transparent AND returns HTTRANSPARENT from
+      WM_NCHITTEST, so clicks pass through to whatever is underneath.
+    -->
+    <Grid>
+        <controls:NotchIsland x:Name="Island"
+                              State="{Binding State, Mode=OneWay}"
+                              ReducedMotion="{Binding ReducedMotion, Mode=OneWay}"
+                              SelectedTab="{Binding SelectedTab, Mode=OneWay}"
+                              IsBatteryVisible="{Binding IsBatteryVisible, Mode=OneWay}"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Top" />
+    </Grid>
+</Window>
