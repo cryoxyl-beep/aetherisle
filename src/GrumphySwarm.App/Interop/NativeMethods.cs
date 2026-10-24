@@ -46,6 +46,9 @@ internal static class NativeMethods
     internal const int WM_ACTIVATEAPP = 0x001C;
     internal const int WM_DISPLAYCHANGE = 0x007E;
     internal const int WM_DPICHANGED = 0x02E0;
+    internal const int WM_MOVE = 0x0003;
+    internal const int WM_ENTERSIZEMOVE = 0x0231;
+    internal const int WM_EXITSIZEMOVE = 0x0232;
 
     /// <summary>Let the mouse event fall through to windows underneath.</summary>
     internal const int HTTRANSPARENT = -1;

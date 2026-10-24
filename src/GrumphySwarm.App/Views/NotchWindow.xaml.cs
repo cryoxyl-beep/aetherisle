@@ -193,6 +193,25 @@ public partial class NotchWindow : Window
                 Dispatcher.BeginInvoke(() => RepositionToMonitor("display resolution changed"));
                 break;
 
+            case NativeMethods.WM_ENTERSIZEMOVE:
+                _nativeDragging = true;
+                break;
+
+            case NativeMethods.WM_MOVE when _nativeDragging:
+                SyncOffsetsFromWindowPosition();
+                break;
+
+            case NativeMethods.WM_EXITSIZEMOVE:
+                if (_nativeDragging)
+                {
+                    _nativeDragging = false;
+                    ClampWindowInsideMonitor();
+                    _viewModel.SaveDragOffset();
+                    RefreshDragCache();
+                }
+
+                break;
+
             case NativeMethods.WM_ACTIVATEAPP when wParam != IntPtr.Zero:
                 _logger.LogWarning("Notch window got activated despite WS_EX_NOACTIVATE.");
                 break;
@@ -204,9 +223,12 @@ public partial class NotchWindow : Window
     /// <summary>
     /// Returns true (with a result) when the point must NOT hit the island:
     ///  - outside the silhouette (always click-through), or
-    ///  - ANYWHERE while Shift is held — the island becomes fully click-through
-    ///    so it stops expanding on hover and never blocks browser tabs beneath.
-    /// Points inside the silhouette fall through to WPF's default handling.
+    ///  - while Shift is held: OUTSIDE the silhouette stays fully click-through
+    ///    (browser tabs underneath stay clickable); INSIDE the silhouette the
+    ///    island reports itself as a caption — pressing the left button and
+    ///    dragging makes Windows itself move the window through its native
+    ///    drag loop. That is how Shift+drag is implemented: no low-level
+    ///    hooks, no WPF layout, nothing Windows can silently evict.
     /// </summary>
     private bool HandleNcHitTest(IntPtr lParam, out IntPtr result)
     {
@@ -217,12 +239,6 @@ public partial class NotchWindow : Window
             return false;
         }
 
-        if (NativeMethods.IsShiftHeld())
-        {
-            result = new IntPtr(NativeMethods.HTTRANSPARENT);
-            return true;
-        }
-
         try
         {
             var screenX = NativeMethods.GetSignedLowWord(lParam);
@@ -230,6 +246,20 @@ public partial class NotchWindow : Window
 
             var windowPoint = PointFromScreen(new Point(screenX, screenY));
             var islandPoint = TranslatePoint(windowPoint, Island);
+
+            if (NativeMethods.IsShiftHeld())
+            {
+                if (Island.HitTestSilhouette(islandPoint))
+                {
+                    result = new IntPtr(HTCAPTION);
+                }
+                else
+                {
+                    result = new IntPtr(NativeMethods.HTTRANSPARENT);
+                }
+
+                return true;
+            }
 
             if (!Island.HitTestSilhouette(islandPoint))
             {
@@ -245,32 +275,23 @@ public partial class NotchWindow : Window
         return false;
     }
 
+    private const int HTCAPTION = 2;
+
     // --------------------------------------------- global mouse hook (always on)
     //
-    // One permanent low-level hook serves three features:
-    //   - SHIFT + left-click-drag starting on the island → reposition the
-    //     island (works even in collapsed mode; the events are swallowed so
-    //     neither the island nor apps beneath see the drag — no expand/collapse
-    //     thrash).
+    // The low-level hook now serves only two rare, low-frequency gestures:
     //   - Middle button anywhere → toggle the earbud battery capsule.
     //   - Left/right click outside the island while PINNED → dismiss the panel.
-    // The hook only ever swallows input for the shift-drag gesture.
+    // Island REPOSITIONING no longer uses the hook at all: Shift+drag is the
+    // OS's own native caption drag (WM_NCHITTEST → HTCAPTION), which Windows
+    // runs in its internal move loop. Nothing here can be silently evicted.
 
-    private bool _shiftDragging;
-    private Point _shiftDragOriginScreen;
-    private double _shiftDragStartOffsetX;
-    private double _shiftDragStartOffsetY;
-
-    // ---- shift-drag fast-path cache ------------------------------------------------
-    // Windows silently unhooks low-level hooks whose callbacks take too long
-    // (~300 ms), which is what made the old drag feel dead: it called WPF
-    // layout (PointToScreen) inside the hook. Everything below is plain data,
-    // refreshed on the UI thread, so the hook callback is pure math + one
-    // SetWindowPos — nothing that can trip the hook timeout.
-    private Rect _grabRectScreen;      // island rect + margin, physical px
+    // Native-drag bookkeeping: base placement (offset-zero) and DPI scale are
+    // cached so the window position can be converted back into drag offsets.
     private NativeMethods.RECT _dragMonitor;
     private double _dragScaleX = 1, _dragScaleY = 1;
     private int _baseX, _baseY, _winW, _winH; // offset-zero placement, physical px
+    private bool _nativeDragging;
 
     private void RefreshDragCache()
     {
@@ -313,14 +334,6 @@ public partial class NotchWindow : Window
             _baseY = placement.Y;
             _winW = placement.Width;
             _winH = placement.Height;
-
-            var topLeft = Island.PointToScreen(new Point(0, 0));
-            var margin = 40 * _dragScaleX;
-            _grabRectScreen = new Rect(
-                topLeft.X - margin,
-                topLeft.Y - margin,
-                (Island.ActualWidth * _dragScaleX) + (2 * margin),
-                (Island.ActualHeight * _dragScaleY) + (2 * margin));
         }
         catch (InvalidOperationException)
         {
@@ -362,52 +375,6 @@ public partial class NotchWindow : Window
 
             switch (message)
             {
-                case NativeMethods.WM_LBUTTONDOWN when NativeMethods.IsShiftHeld() && _grabRectScreen.Contains(screenPoint):
-                    // Begin the shift-drag gesture and swallow this click so
-                    // nothing beneath reacts (the window itself is fully
-                    // click-through while Shift is held). Pure field writes —
-                    // no WPF work inside the hook.
-                    _shiftDragging = true;
-                    _shiftDragOriginScreen = screenPoint;
-                    _shiftDragStartOffsetX = _viewModel.DragOffsetX;
-                    _shiftDragStartOffsetY = _viewModel.DragOffsetY;
-                    return new IntPtr(1);
-
-                case NativeMethods.WM_MOUSEMOVE when _shiftDragging:
-                {
-                    // Fast path: cached geometry + one SetWindowPos. No layout,
-                    // no dispatcher, no allocations that could slow the hook.
-                    var offsetXdip = _shiftDragStartOffsetX + ((screenPoint.X - _shiftDragOriginScreen.X) / _dragScaleX);
-                    var offsetYdip = _shiftDragStartOffsetY + ((screenPoint.Y - _shiftDragOriginScreen.Y) / _dragScaleY);
-                    _viewModel.UpdateDragOffset(offsetXdip, offsetYdip);
-
-                    var x = _baseX + (int)Math.Round(offsetXdip * _dragScaleX);
-                    var y = _baseY + (int)Math.Round(offsetYdip * _dragScaleY);
-                    var monitorWidth = _dragMonitor.Right - _dragMonitor.Left;
-                    var monitorHeight = _dragMonitor.Bottom - _dragMonitor.Top;
-                    x = Math.Clamp(x, _dragMonitor.Left, _dragMonitor.Left + Math.Max(0, monitorWidth - _winW));
-                    y = Math.Clamp(y, _dragMonitor.Top, _dragMonitor.Top + Math.Max(0, monitorHeight - _winH));
-
-                    NativeMethods.SetWindowPos(
-                        _hwnd,
-                        IntPtr.Zero,
-                        x,
-                        y,
-                        0,
-                        0,
-                        NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_NOOWNERZORDER);
-                    return new IntPtr(1);
-                }
-
-                case NativeMethods.WM_LBUTTONUP when _shiftDragging:
-                    _shiftDragging = false;
-                    Dispatcher.BeginInvoke(() =>
-                    {
-                        _viewModel.SaveDragOffset();
-                        RefreshDragCache();
-                    });
-                    return new IntPtr(1);
-
                 case NativeMethods.WM_MBUTTONDOWN:
                     // Toggle the battery capsule on middle click, anywhere.
                     Dispatcher.BeginInvoke(() => _viewModel.ToggleBattery());
@@ -435,12 +402,49 @@ public partial class NotchWindow : Window
     }
 
     /// <summary>
-    /// Shift-drag grab region is the cached <see cref="_grabRectScreen"/>
-    /// (island rect + margin, refreshed on the UI thread by
-    /// <see cref="RefreshDragCache"/>). Kept as a method for readability.
+    /// Converts the live window position (native caption drag) back into the
+    /// persisted drag offsets, so display changes and restarts keep the
+    /// user-chosen position.
     /// </summary>
-    private bool IsScreenPointOverIsland(Point screenPointPhysical)
-        => _grabRectScreen.Contains(screenPointPhysical);
+    private void SyncOffsetsFromWindowPosition()
+    {
+        if (!NativeMethods.GetWindowRect(_hwnd, out var rect) || _dragScaleX <= 0)
+        {
+            return;
+        }
+
+        _viewModel.UpdateDragOffset(
+            (rect.Left - _baseX) / _dragScaleX,
+            (rect.Top - _baseY) / _dragScaleY);
+    }
+
+    /// <summary>Keeps at least most of the window inside the monitor after a drag.</summary>
+    private void ClampWindowInsideMonitor()
+    {
+        if (!NativeMethods.GetWindowRect(_hwnd, out var rect))
+        {
+            return;
+        }
+
+        var monitorWidth = _dragMonitor.Right - _dragMonitor.Left;
+        var monitorHeight = _dragMonitor.Bottom - _dragMonitor.Top;
+
+        var x = Math.Clamp(rect.Left, _dragMonitor.Left, _dragMonitor.Left + Math.Max(0, monitorWidth - _winW));
+        var y = Math.Clamp(rect.Top, _dragMonitor.Top, _dragMonitor.Top + Math.Max(0, monitorHeight - _winH));
+
+        if (x != rect.Left || y != rect.Top)
+        {
+            NativeMethods.SetWindowPos(
+                _hwnd,
+                IntPtr.Zero,
+                x,
+                y,
+                0,
+                0,
+                NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_NOOWNERZORDER);
+            SyncOffsetsFromWindowPosition();
+        }
+    }
 
     private bool IsPointOverIsland(Point screenPointPhysical)
     {

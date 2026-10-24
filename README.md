@@ -11,11 +11,17 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%2011-0078D4)](https://github.com)
 [![UI](https://img.shields.io/badge/UI-WPF-9B4F96)](https://learn.microsoft.com/dotnet/desktop/wpf/)
 [![Tests](https://img.shields.io/badge/tests-96%2F96-30D158)](#testing)
-[![Release](https://img.shields.io/badge/download-v0.3.2-FF2D55)](https://github.com/cryoxyl-beep/aetherisle/releases/latest)
+[![Release](https://img.shields.io/badge/download-v0.3.3-FF2D55)](https://github.com/cryoxyl-beep/aetherisle/releases/latest)
 
 ### ⬇️ [**Download Aetherisle.exe**](https://github.com/cryoxyl-beep/aetherisle/releases/latest/download/Aetherisle.exe) — double-click and run. No install, no .NET, no admin.
 
 *(or grab the [full build as a zip](https://github.com/cryoxyl-beep/aetherisle/releases/latest/download/Aetherisle-win-x64.zip))*
+
+> **🚧 Status: Active Development.** Aetherisle ships early and improves fast.
+> Current builds are stable for daily use, but this is a young project — if you
+> hit a bug, [open an issue](https://github.com/cryoxyl-beep/aetherisle/issues);
+> fixes and improvements land in
+> [upcoming releases](https://github.com/cryoxyl-beep/aetherisle/releases).
 
 *A pure-black capsule that floats on your screen — with real album art, a live audio
 visualizer, a full media player, volume/brightness/battery glanceables, and Bluetooth
@@ -25,7 +31,23 @@ earbud status. Built like a system component, not a webpage.*
 
 ---
 
-## ✨ What it does
+## 🎯 The problems Aetherisle solves
+
+Windows has no Dynamic Island — and the usual workarounds all hurt. Aetherisle exists to fix each of those pains natively:
+
+| The problem | How Aetherisle solves it |
+|---|---|
+| **Media controls live in buried windows.** Changing a track means alt-tabbing and hunting for Spotify / Apple Music / the right browser tab. | The island surfaces the *actual* system media session — title, artist, artwork, live progress bar and transport buttons — from any app publishing one, without stealing focus from what you're doing. |
+| **Now-playing widgets are fake or ugly.** Placeholder art, static icons, visualizers that just wiggle on a timer. | Real SMTC metadata, real album artwork (allow-listed to your player apps), and a genuine WASAPI-loopback FFT visualizer reacting to the audio your PC is producing — flat in silence, alive when sound plays. |
+| **Overlays block what's underneath.** A top-of-screen bar eats the clicks meant for the browser tab behind it, and hover-expand drives you mad. | Pixel-exact silhouette hit-testing: only the island itself is interactive. Hold **Shift** and the island goes full ghost — click-through, no hover-expand — so the tab beneath stays perfectly usable. |
+| **Repositioning overlays is janky** — config files, registry keys, or "grab the invisible resize handle". | Hold **Shift + left-drag** anywhere on the island: Windows' own native drag moves it, collapsed or expanded, and the position survives restarts. |
+| **Volume / brightness / battery feedback is scattered** across flyouts, taskbar corners and the Settings app. | One glance in the pill: volume icon → live % while adjusting → back (red when muted), brightness flashes, system battery with charge state — event-driven, no polling lag. |
+| **Bluetooth earbud battery is invisible.** Windows shows it in Settings, but no lightweight overlay surfaces it. | Middle-click anywhere (or double-tap the island) for the battery capsule — the same Hands-Free-Profile battery source Windows Settings reads, with 3D device art and the % inside the ring. |
+| **"Desktop widget" usually means Electron.** Hundreds of MB of Chromium for a clock. | Pure native WPF on .NET 10 — one process, GPU-composited UI, no browser, no web view, no JS runtime. |
+
+---
+
+## ✨ Feature tour
 
 | | Feature | How |
 |---|---|---|
@@ -36,8 +58,8 @@ earbud status. Built like a system component, not a webpage.*
 | 🔆 | **Brightness glance** | WMI event-driven; DDC/CI fallback for external monitors |
 | 🔋 | **System battery** | Charge %, charging bolt, green/amber/red — between volume and clock |
 | 🎧 | **Earbud battery capsule** | Middle-click anywhere or double-tap the island — Airdopes 138 & Zeb Duke allow-listed, four battery channels polled (AEP × device/container/service + GATT) |
-| 🖱 | **Free repositioning** | **Shift + drag** the island anywhere — in collapsed or expanded mode; position persists across restarts |
-| 👻 | **Shift = ghost mode** | Hold Shift to make the island fully click-through — hover stops expanding it, and clicks reach the browser tab underneath |
+| 🖱 | **Free repositioning** | **Shift + left-drag** the island anywhere via Windows native drag — collapsed or expanded; position persists across restarts |
+| 👻 | **Shift = ghost mode** | Hover stops expanding; around the island every click passes straight through to the tab beneath (on the island itself, Shift turns it into a drag handle) |
 | 📌 | **Pinned state** | Pin the expanded panel; click outside to dismiss |
 | 📅 | **Nook tab** | Media card · mini-calendar (real dates) · pet slot reserved |
 | 🤖 | **Agents tab** | Local agent profiles (create/edit/delete, JSON-persisted) — the runtime dock for what's next |
@@ -68,7 +90,7 @@ dotnet publish src/GrumphySwarm.App/GrumphySwarm.App.csproj `
 | **Click** the pill | Jump straight into the media player |
 | **Double-click** / **middle-click anywhere** | Earbud battery capsule |
 | **Shift + left-drag on the island** | Move it anywhere — works collapsed or expanded |
-| **Hold Shift** | Ghost mode: island is click-through and won't expand (perfect for reaching browser tabs underneath) |
+| **Hold Shift** | Ghost mode: no hover-expand, and clicks around the island reach the tab beneath; on the island, left-drag moves it |
 | **Pin** button | Keep the panel open; click outside to unpin |
 | Tray icon → Exit | Clean shutdown |
 
