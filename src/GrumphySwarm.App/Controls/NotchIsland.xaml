@@ -200,10 +200,10 @@
                                                  VerticalAlignment="Center" />
             </Grid>
 
-            <!-- ==================== expanded panel (Nook / Agents) ==================== -->
+            <!-- ==================== expanded panel (Nook / Agents / Stats) ==================== -->
             <Grid x:Name="PanelContent"
-                  Width="700"
-                  Height="176"
+                  Width="760"
+                  Height="230"
                   HorizontalAlignment="Center"
                   VerticalAlignment="Top"
                   Opacity="0"
@@ -213,207 +213,411 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <!-- Header: tabs · transient status · pin -->
+                <!-- Header: reference nav row on Nook · chip tabs on Agents/Stats -->
                 <Grid Grid.Row="0" Margin="26,6,20,0">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <RadioButton Style="{StaticResource TabChipStyle}"
-                                     Content="Nook"
-                                     IsChecked="{Binding IsNookTab, Mode=TwoWay}" />
-                        <RadioButton Style="{StaticResource TabChipStyle}"
-                                     Content="Agents"
-                                     IsChecked="{Binding IsAgentsTab, Mode=TwoWay}"
-                                     Margin="8,0,0,0" />
-                        <RadioButton Style="{StaticResource TabChipStyle}"
-                                     Content="Stats"
-                                     IsChecked="{Binding IsStatsTab, Mode=TwoWay}"
-                                     Margin="8,0,0,0" />
-                    </StackPanel>
 
-                    <StackPanel Orientation="Horizontal"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                Visibility="{Binding TransientVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <TextBlock Text="{Binding TransientGlyph}"
-                                   FontFamily="{StaticResource IconFontFamily}"
-                                   FontSize="12"
-                                   Foreground="{StaticResource TextPrimaryBrush}"
-                                   VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding TransientText}"
-                                   Style="{StaticResource CaptionStrongStyle}"
-                                   Margin="6,0,0,0"
-                                   VerticalAlignment="Center"
-                                   Typography.NumeralAlignment="Tabular" />
-                    </StackPanel>
+                    <!-- Nook: four left icon buttons + lock/battery/bell/gear right -->
+                    <Grid Visibility="{Binding IsNookTab, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Style="{StaticResource NavButtonStyle}"
+                                    Content="&#xE80F;"
+                                    ToolTip="Nook · home"
+                                    Command="{Binding ShowNookCommand}" />
+                            <Button Style="{StaticResource NavButtonStyle}"
+                                    Content="&#xE821;"
+                                    ToolTip="Agents"
+                                    Command="{Binding ShowAgentsCommand}"
+                                    Margin="10,0,0,0" />
+                            <Button Style="{StaticResource NavButtonStyle}"
+                                    Content="&#xE787;"
+                                    ToolTip="Calendar — shown in Nook"
+                                    Command="{Binding ShowNookCommand}"
+                                    Margin="10,0,0,0" />
+                            <Button Style="{StaticResource NavButtonStyle}"
+                                    Content="&#xE753;"
+                                    ToolTip="Weather — shown in Nook"
+                                    Command="{Binding ShowNookCommand}"
+                                    Margin="10,0,0,0" />
+                        </StackPanel>
 
-                    <Button Style="{StaticResource IconButtonStyle}"
-                            Command="{Binding TogglePinCommand}"
-                            ToolTip="{Binding PinToolTip}"
-                            Content="{Binding PinGlyph}"
-                            HorizontalAlignment="Right" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button Style="{StaticResource NavButtonStyle}"
+                                    Content="{Binding LockGlyph}"
+                                    ToolTip="{Binding PinToolTip}"
+                                    Command="{Binding TogglePinCommand}" />
+                            <Button Style="{StaticResource BatteryPillStyle}"
+                                    ToolTip="System stats"
+                                    Command="{Binding ShowStatsCommand}"
+                                    Margin="10,0,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <controls:SystemBatteryControl Width="20"
+                                                                   Height="10"
+                                                                   Percent="{Binding SystemBatteryPercent}"
+                                                                   IsCharging="{Binding SystemBatteryCharging}"
+                                                                   VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding SystemBatteryText, FallbackValue=''}"
+                                               FontSize="11.5"
+                                               FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               Margin="6,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Typography.NumeralAlignment="Tabular" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource NavButtonStyle}"
+                                    Content="&#xEA8F;"
+                                    ToolTip="No new notifications"
+                                    Margin="10,0,0,0" />
+                            <Button Style="{StaticResource NavButtonStyle}"
+                                    Content="&#xE713;"
+                                    ToolTip="Settings — coming soon"
+                                    Margin="10,0,0,0" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Agents / Stats: tab chips + transient + pin -->
+                    <Grid Visibility="{Binding IsNookTab, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <RadioButton Style="{StaticResource TabChipStyle}"
+                                         Content="Nook"
+                                         IsChecked="{Binding IsNookTab, Mode=TwoWay}" />
+                            <RadioButton Style="{StaticResource TabChipStyle}"
+                                         Content="Agents"
+                                         IsChecked="{Binding IsAgentsTab, Mode=TwoWay}"
+                                         Margin="8,0,0,0" />
+                            <RadioButton Style="{StaticResource TabChipStyle}"
+                                         Content="Stats"
+                                         IsChecked="{Binding IsStatsTab, Mode=TwoWay}"
+                                         Margin="8,0,0,0" />
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Visibility="{Binding TransientVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock Text="{Binding TransientGlyph}"
+                                       FontFamily="{StaticResource IconFontFamily}"
+                                       FontSize="12"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding TransientText}"
+                                       Style="{StaticResource CaptionStrongStyle}"
+                                       Margin="6,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Typography.NumeralAlignment="Tabular" />
+                        </StackPanel>
+
+                        <Button Style="{StaticResource IconButtonStyle}"
+                                Command="{Binding TogglePinCommand}"
+                                ToolTip="{Binding PinToolTip}"
+                                Content="{Binding PinGlyph}"
+                                HorizontalAlignment="Right" />
+                    </Grid>
                 </Grid>
 
-                <!-- ======================= Nook tab ======================= -->
-                <StackPanel Grid.Row="1"
-                            x:Name="NookTab"
-                            Orientation="Horizontal"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Margin="0,0,0,10">
+                <!-- ============ Nook tab (reference: nav row + 3 columns) ============ -->
+                <Grid Grid.Row="1"
+                      x:Name="NookTab"
+                      Margin="26,2,26,12"
+                      Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="336" />
+                        <ColumnDefinition Width="18" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="18" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="18" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="18" />
+                        <ColumnDefinition Width="188" />
+                    </Grid.ColumnDefinitions>
 
-                    <!-- Media card (live SMTC data; click opens the player view) -->
-                    <Border Style="{StaticResource ModuleCardStyle}"
-                            Width="270"
-                            x:Name="MediaCard"
-                            Cursor="Hand">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
+                    <!-- ================= left column: now playing ================= -->
+                    <Grid Grid.Column="0" x:Name="MediaCard" Cursor="Hand">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
 
-                            <Grid Grid.Column="0" Width="46" Height="46" VerticalAlignment="Center">
-                                <Border Background="{StaticResource ChipBackgroundBrush}" CornerRadius="10">
-                                    <TextBlock Text="{x:Static app:StatusGlyphs.EmptyMedia}"
+                        <!-- artwork with source-app badge -->
+                        <Grid Grid.Column="0" Width="86" Height="86" VerticalAlignment="Center">
+                            <Border Background="{StaticResource ChipBackgroundBrush}" CornerRadius="12">
+                                <TextBlock Text="{x:Static app:StatusGlyphs.EmptyMedia}"
+                                           FontFamily="{StaticResource IconFontFamily}"
+                                           FontSize="20"
+                                           Foreground="{StaticResource TextTertiaryBrush}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
+                            </Border>
+                            <Border CornerRadius="12">
+                                <Border.Background>
+                                    <ImageBrush ImageSource="{Binding MediaArtwork, FallbackValue={x:Null}}"
+                                                Stretch="UniformToFill" />
+                                </Border.Background>
+                                <Border.Visibility>
+                                    <Binding Path="HasArtwork" Converter="{StaticResource BooleanToVisibilityConverter}" FallbackValue="Collapsed" />
+                                </Border.Visibility>
+                            </Border>
+                            <Border Width="24"
+                                    Height="24"
+                                    CornerRadius="12"
+                                    Background="{Binding MediaSourceBadgeBrush}"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Bottom"
+                                    Margin="0,0,-2,-2"
+                                    ToolTip="{Binding MediaSourceBadgeToolTip}"
+                                    Visibility="{Binding MediaSourceBadgeVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <Grid>
+                                    <Image Source="{Binding MediaSourceAppIcon, FallbackValue={x:Null}}"
+                                           Width="15"
+                                           Height="15"
+                                           RenderOptions.BitmapScalingMode="HighQuality"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE8D6;"
                                                FontFamily="{StaticResource IconFontFamily}"
-                                               FontSize="15"
-                                               Foreground="{StaticResource TextTertiaryBrush}"
+                                               FontSize="11"
+                                               Foreground="White"
                                                HorizontalAlignment="Center"
-                                               VerticalAlignment="Center" />
-                                </Border>
-                                <Border CornerRadius="10">
-                                    <Border.Background>
-                                        <ImageBrush ImageSource="{Binding MediaArtwork, FallbackValue={x:Null}}"
-                                                    Stretch="UniformToFill" />
-                                    </Border.Background>
-                                    <Border.Visibility>
-                                        <Binding Path="HasArtwork" Converter="{StaticResource BooleanToVisibilityConverter}" FallbackValue="Collapsed" />
-                                    </Border.Visibility>
-                                </Border>
-                            </Grid>
+                                               VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding MediaSourceAppIcon}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                            </Border>
+                        </Grid>
 
-                            <StackPanel Grid.Column="1" Margin="10,0,4,0" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding MediaTitle, FallbackValue='Nothing playing'}"
-                                           Style="{StaticResource MediaTitleStyle}"
-                                           TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding MediaSubtitle, FallbackValue=''}"
-                                           Style="{StaticResource CaptionStyle}"
-                                           Margin="0,3,0,0"
-                                           TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding MediaStatusText, FallbackValue=''}"
-                                           Style="{StaticResource MicroCaptionStyle}"
-                                           Margin="0,2,0,0" />
-                            </StackPanel>
+                        <!-- title + artist + transport -->
+                        <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding MediaTitle, FallbackValue='Nothing playing'}"
+                                       Style="{StaticResource MediaTitleStyle}"
+                                       FontSize="13.5"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding MediaArtistText, FallbackValue=''}"
+                                       FontFamily="{StaticResource BodyFontFamily}"
+                                       FontSize="11.5"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       Margin="0,3,0,0"
+                                       TextTrimming="CharacterEllipsis" />
 
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button Style="{StaticResource TransportButtonStyle}"
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
+                                <Button Style="{StaticResource IconButtonStyle}"
+                                        Width="30"
+                                        Height="30"
+                                        Background="#FF1E1E24"
+                                        FontSize="11"
                                         Command="{Binding PreviousTrackCommand}"
                                         Content="{x:Static app:StatusGlyphs.Previous}">
                                     <Button.Visibility>
                                         <Binding Path="CanPrevious" Converter="{StaticResource BooleanToVisibilityConverter}" FallbackValue="Collapsed" />
                                     </Button.Visibility>
                                 </Button>
-                                <Button Style="{StaticResource TransportButtonStyle}"
-                                        Command="{Binding PlayPauseCommand}"
+                                <Button Command="{Binding PlayPauseCommand}"
                                         Content="{Binding PlayPauseGlyph}"
-                                        Margin="4,0,0,0">
+                                        Width="42"
+                                        Height="42"
+                                        FontSize="16"
+                                        Margin="14,0">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                                            <Setter Property="Background" Value="#FF2E2E34" />
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border x:Name="Bd"
+                                                                Background="{TemplateBinding Background}"
+                                                                CornerRadius="21">
+                                                            <TextBlock Text="{TemplateBinding Content}"
+                                                                       FontFamily="{StaticResource IconFontFamily}"
+                                                                       FontSize="{TemplateBinding FontSize}"
+                                                                       Foreground="{TemplateBinding Foreground}"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center" />
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsEnabled" Value="False">
+                                                                <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                                                            </Trigger>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="Bd" Property="Background" Value="#FF3A3A42" />
+                                                            </Trigger>
+                                                            <Trigger Property="IsPressed" Value="True">
+                                                                <Setter TargetName="Bd" Property="Background" Value="#FF464650" />
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </Button.Style>
                                     <Button.Visibility>
                                         <Binding Path="CanPlayPause" Converter="{StaticResource BooleanToVisibilityConverter}" FallbackValue="Collapsed" />
                                     </Button.Visibility>
                                 </Button>
-                                <Button Style="{StaticResource TransportButtonStyle}"
+                                <Button Style="{StaticResource IconButtonStyle}"
+                                        Width="30"
+                                        Height="30"
+                                        Background="#FF1E1E24"
+                                        FontSize="11"
                                         Command="{Binding NextTrackCommand}"
-                                        Content="{x:Static app:StatusGlyphs.Next}"
-                                        Margin="4,0,0,0">
+                                        Content="{x:Static app:StatusGlyphs.Next}">
                                     <Button.Visibility>
                                         <Binding Path="CanNext" Converter="{StaticResource BooleanToVisibilityConverter}" FallbackValue="Collapsed" />
                                     </Button.Visibility>
                                 </Button>
                             </StackPanel>
-                        </Grid>
-                    </Border>
+                        </StackPanel>
 
-                    <!-- Calendar card -->
-                    <Border Style="{StaticResource ModuleCardStyle}" Width="224" Margin="12,0,0,0">
-                        <Grid VerticalAlignment="Center">
+                        <!-- progress bar + times across the full column -->
+                        <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,8,0,0">
+                            <Grid Height="3.5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="{Binding PlaybackFraction, Converter={StaticResource FractionToStarConverter}, Mode=OneWay}" />
+                                    <ColumnDefinition Width="{Binding PlaybackFraction, Converter={StaticResource FractionRemainderConverter}, Mode=OneWay}" />
+                                </Grid.ColumnDefinitions>
+                                <Border Background="#F5F5F7" CornerRadius="2,0,0,2" />
+                                <Border Grid.Column="1" Background="#3F3F42" CornerRadius="0,2,2,0" />
+                            </Grid>
+                            <Grid Margin="0,4,0,0">
+                                <TextBlock Text="{Binding ElapsedText, FallbackValue=''}"
+                                           Style="{StaticResource MicroCaptionStyle}"
+                                           HorizontalAlignment="Left"
+                                           Typography.NumeralAlignment="Tabular" />
+                                <TextBlock Text="{Binding MediaTotalText, FallbackValue=''}"
+                                           Style="{StaticResource MicroCaptionStyle}"
+                                           HorizontalAlignment="Right"
+                                           Typography.NumeralAlignment="Tabular" />
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+
+                    <Rectangle Grid.Column="2" Width="1" Fill="{StaticResource HairlineBrush}" Margin="0,4" />
+
+                    <!-- ================= center column: events ================= -->
+                    <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding ShortDateText, FallbackValue=''}"
+                                   FontFamily="{StaticResource PrimaryFontFamily}"
+                                   FontSize="21"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock Text="No events coming up"
+                                   Style="{StaticResource CaptionStyle}"
+                                   FontSize="11.5"
+                                   Margin="0,4,0,0" />
+                    </StackPanel>
+
+                    <Rectangle Grid.Column="6" Width="1" Fill="{StaticResource HairlineBrush}" Margin="0,4" />
+
+                    <!-- ================= right column: weather ================= -->
+                    <Grid Grid.Column="8" VerticalAlignment="Center">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Grid Grid.Row="0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="{Binding Calendar.MonthLabel, FallbackValue=''}"
-                                       Style="{StaticResource MonthStyle}"
-                                       VerticalAlignment="Top" />
-                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                                <ItemsControl ItemsSource="{Binding Calendar.Days, FallbackValue={x:Null}}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <StackPanel Orientation="Horizontal" />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <StackPanel Width="24">
-                                                <TextBlock Text="{Binding WeekdayLabel}"
-                                                           Style="{StaticResource DayHeaderStyle}" />
-                                                <Border x:Name="DayBadge"
-                                                        CornerRadius="10"
-                                                        Width="20"
-                                                        Height="20"
-                                                        Margin="0,4,0,0"
-                                                        HorizontalAlignment="Center">
-                                                    <TextBlock x:Name="DayText"
-                                                               Text="{Binding DayNumber}"
-                                                               Style="{StaticResource DayNumberStyle}" />
-                                                </Border>
-                                            </StackPanel>
-                                            <DataTemplate.Triggers>
-                                                <DataTrigger Binding="{Binding IsPast}" Value="True">
-                                                    <Setter TargetName="DayText" Property="Foreground" Value="{StaticResource TextTertiaryBrush}" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding IsToday}" Value="True">
-                                                    <Setter TargetName="DayBadge" Property="Background" Value="{StaticResource AccentBlueBrush}" />
-                                                    <Setter TargetName="DayText" Property="Foreground" Value="White" />
-                                                </DataTrigger>
-                                            </DataTemplate.Triggers>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                                <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
-                                    <TextBlock Text="&#xE787;"
-                                               FontFamily="{StaticResource IconFontFamily}"
-                                               FontSize="10"
-                                               Foreground="{StaticResource TextSecondaryBrush}"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Text="Nothing for today"
-                                               Style="{StaticResource CaptionStyle}"
-                                               Margin="6,0,0,0" />
-                                </StackPanel>
+                            <Path Grid.Column="0"
+                                  Data="{StaticResource WeatherCloudGeometry}"
+                                  Fill="{StaticResource TextPrimaryBrush}"
+                                  Width="34"
+                                  Height="24"
+                                  Stretch="Uniform"
+                                  VerticalAlignment="Top" />
+                            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                <TextBlock Text="{Binding WeatherTempText, FallbackValue='—'}"
+                                           Style="{StaticResource WeatherTempStyle}"
+                                           HorizontalAlignment="Right" />
+                                <TextBlock Text="{Binding WeatherConditionText, FallbackValue=''}"
+                                           Style="{StaticResource CaptionStyle}"
+                                           FontSize="11.5"
+                                           HorizontalAlignment="Right"
+                                           Margin="0,2,2,0" />
                             </StackPanel>
                         </Grid>
-                    </Border>
 
-                    <!-- Avatar / future desktop-pet slot -->
-                    <Border Style="{StaticResource ReservedCardStyle}" Width="112" Margin="12,0,0,0">
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <Border Background="{StaticResource ChipBackgroundBrush}"
-                                    CornerRadius="17"
-                                    Width="34"
-                                    Height="34">
-                                <Path Data="{StaticResource SwarmGlyphGeometry}"
-                                      Fill="{StaticResource TextSecondaryBrush}"
-                                      Width="16"
-                                      Height="14"
-                                      Stretch="Uniform" />
-                            </Border>
-                            <TextBlock Text="Pet"
-                                       Style="{StaticResource ReservedTitleStyle}"
-                                       Margin="0,8,0,0" />
-                            <TextBlock Text="Milestone 3"
-                                       Style="{StaticResource ReservedCaptionStyle}"
-                                       Margin="0,2,0,0" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
+                        <TextBlock Grid.Row="1"
+                                   Text="{Binding WeatherCityText, FallbackValue=''}"
+                                   Style="{StaticResource CaptionStrongStyle}"
+                                   FontSize="13"
+                                   Margin="0,8,0,0" />
+
+                        <Grid Grid.Row="2" Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Width="14" Height="14" CornerRadius="7" Background="{StaticResource AccentOrangeBrush}">
+                                        <TextBlock Text="&#xE74A;"
+                                                   FontFamily="{StaticResource IconFontFamily}"
+                                                   FontSize="7.5"
+                                                   Foreground="White"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock Text="High"
+                                               Style="{StaticResource CaptionStyle}"
+                                               Margin="5,0,0,0"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding WeatherHighText, FallbackValue='—'}"
+                                           FontFamily="{StaticResource PrimaryFontFamily}"
+                                           FontSize="15"
+                                           FontWeight="Bold"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           Margin="1,3,0,0"
+                                           Typography.NumeralAlignment="Tabular" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1">
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Width="14" Height="14" CornerRadius="7" Background="{StaticResource AccentCyanBrush}">
+                                        <TextBlock Text="&#xE74B;"
+                                                   FontFamily="{StaticResource IconFontFamily}"
+                                                   FontSize="7.5"
+                                                   Foreground="White"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock Text="Low"
+                                               Style="{StaticResource CaptionStyle}"
+                                               Margin="5,0,0,0"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding WeatherLowText, FallbackValue='—'}"
+                                           FontFamily="{StaticResource PrimaryFontFamily}"
+                                           FontSize="15"
+                                           FontWeight="Bold"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           Margin="1,3,0,0"
+                                           Typography.NumeralAlignment="Tabular" />
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Grid>
 
                 <!-- ======================= Agents tab ======================= -->
                 <Grid Grid.Row="1"
@@ -499,113 +703,206 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- ======================= Stats tab ======================= -->
+                <!-- ======================= Stats tab (reference image 3) ======================= -->
                 <Grid Grid.Row="1"
                       x:Name="StatsTab"
-                      Margin="26,0,20,10"
+                      Margin="26,0,26,14"
+                      VerticalAlignment="Center"
                       Visibility="Collapsed">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="250" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- column 1: CPU + GPU + disk -->
-                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
-                        <TextBlock Text="CPU" Style="{StaticResource MicroCaptionStyle}" />
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="{Binding CpuFraction, Converter={StaticResource FractionToStarConverter}, Mode=OneWay}" />
-                                <ColumnDefinition Width="{Binding CpuFraction, Converter={StaticResource FractionRemainderConverter}, Mode=OneWay}" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Border Background="{StaticResource AccentGreenBrush}" Height="5" CornerRadius="2.5,0,0,2.5" VerticalAlignment="Center" />
-                            <Border Grid.Column="1" Background="{StaticResource ChipBackgroundBrush}" Height="5" CornerRadius="0,2.5,2.5,0" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="2" Text="{Binding CpuText, FallbackValue='—'}" Style="{StaticResource CaptionStrongStyle}" Margin="8,0,0,0" Typography.NumeralAlignment="Tabular" />
-                        </Grid>
+                    <!-- left: ring gauges row + mini tiles row -->
+                    <Grid Grid.Column="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="108" />
+                            <RowDefinition Height="8" />
+                            <RowDefinition Height="46" />
+                        </Grid.RowDefinitions>
 
-                        <TextBlock Text="GPU" Style="{StaticResource MicroCaptionStyle}" Margin="0,9,0,0" />
-                        <Grid>
+                        <Grid Grid.Row="0">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="{Binding GpuFraction, Converter={StaticResource FractionToStarConverter}, Mode=OneWay}" />
-                                <ColumnDefinition Width="{Binding GpuFraction, Converter={StaticResource FractionRemainderConverter}, Mode=OneWay}" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Border Background="{StaticResource AccentGreenBrush}" Height="5" CornerRadius="2.5,0,0,2.5" VerticalAlignment="Center" />
-                            <Border Grid.Column="1" Background="{StaticResource ChipBackgroundBrush}" Height="5" CornerRadius="0,2.5,2.5,0" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="2" Text="{Binding GpuText, FallbackValue='—'}" Style="{StaticResource CaptionStrongStyle}" Margin="8,0,0,0" Typography.NumeralAlignment="Tabular" />
-                        </Grid>
-
-                        <TextBlock Text="DISK" Style="{StaticResource MicroCaptionStyle}" Margin="0,9,0,0" />
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="{Binding DiskFraction, Converter={StaticResource FractionToStarConverter}, Mode=OneWay}" />
-                                <ColumnDefinition Width="{Binding DiskFraction, Converter={StaticResource FractionRemainderConverter}, Mode=OneWay}" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Border Background="{StaticResource AccentBlueBrush}" Height="5" CornerRadius="2.5,0,0,2.5" VerticalAlignment="Center" />
-                            <Border Grid.Column="1" Background="{StaticResource ChipBackgroundBrush}" Height="5" CornerRadius="0,2.5,2.5,0" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="2" Text="{Binding DiskText, FallbackValue='—'}" Style="{StaticResource CaptionStrongStyle}" Margin="8,0,0,0" Typography.NumeralAlignment="Tabular" />
-                        </Grid>
-                    </StackPanel>
-
-                    <!-- column 2: RAM + network + uptime -->
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="14,0">
-                        <TextBlock Text="RAM" Style="{StaticResource MicroCaptionStyle}" />
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="{Binding RamFraction, Converter={StaticResource FractionToStarConverter}, Mode=OneWay}" />
-                                <ColumnDefinition Width="{Binding RamFraction, Converter={StaticResource FractionRemainderConverter}, Mode=OneWay}" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Border Background="{StaticResource AccentGreenBrush}" Height="5" CornerRadius="2.5,0,0,2.5" VerticalAlignment="Center" />
-                            <Border Grid.Column="1" Background="{StaticResource ChipBackgroundBrush}" Height="5" CornerRadius="0,2.5,2.5,0" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="2" Text="{Binding RamText, FallbackValue='—'}" Style="{StaticResource CaptionStrongStyle}" FontSize="10.5" Margin="8,0,0,0" Typography.NumeralAlignment="Tabular" />
-                        </Grid>
-
-                        <Grid Margin="0,10,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="&#xE701;" FontFamily="{StaticResource IconFontFamily}" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1" Text="{Binding NetDownText, FallbackValue=''}" Style="{StaticResource CaptionStyle}" Margin="6,0,0,0" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" />
+
+                            <!-- CPU gauge: ring centered, % inside, name beneath -->
+                            <Border Grid.Column="0" Style="{StaticResource StatCardStyle}" Padding="8,8,8,7">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <controls:BatteryRingControl Width="44"
+                                                                 Height="44"
+                                                                 HorizontalAlignment="Center"
+                                                                 Percent="{Binding CpuFraction, Converter={StaticResource RoundedPercentConverter}}"
+                                                                 FillBrush="{StaticResource AccentAmberBrush}" />
+                                    <TextBlock Text="CPU"
+                                               Style="{StaticResource StatNameStyle}"
+                                               FontSize="12"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,4,0,0" />
+                                    <TextBlock Text="{Binding CpuName, FallbackValue='CPU'}"
+                                               Style="{StaticResource StatSubStyle}"
+                                               HorizontalAlignment="Center"
+                                               MaxWidth="130"
+                                               Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- GPU gauge -->
+                            <Border Grid.Column="2" Style="{StaticResource StatCardStyle}" Padding="8,8,8,7">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <controls:BatteryRingControl Width="44"
+                                                                 Height="44"
+                                                                 HorizontalAlignment="Center"
+                                                                 Percent="{Binding GpuFraction, Converter={StaticResource RoundedPercentConverter}}"
+                                                                 FillBrush="{StaticResource AccentPurpleBrush}" />
+                                    <TextBlock Text="GPU"
+                                               Style="{StaticResource StatNameStyle}"
+                                               FontSize="12"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,4,0,0" />
+                                    <TextBlock Text="{Binding GpuName, FallbackValue='GPU'}"
+                                               Style="{StaticResource StatSubStyle}"
+                                               HorizontalAlignment="Center"
+                                               MaxWidth="130"
+                                               Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- RAM gauge -->
+                            <Border Grid.Column="4" Style="{StaticResource StatCardStyle}" Padding="8,8,8,7">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <controls:BatteryRingControl Width="44"
+                                                                 Height="44"
+                                                                 HorizontalAlignment="Center"
+                                                                 Percent="{Binding RamFraction, Converter={StaticResource RoundedPercentConverter}}"
+                                                                 FillBrush="{StaticResource AccentGreenBrush}" />
+                                    <TextBlock Text="RAM"
+                                               Style="{StaticResource StatNameStyle}"
+                                               FontSize="12"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,4,0,0" />
+                                    <TextBlock Text="{Binding RamText, FallbackValue='—'}"
+                                               Style="{StaticResource StatSubStyle}"
+                                               HorizontalAlignment="Center"
+                                               MaxWidth="130"
+                                               Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Border>
                         </Grid>
-                        <Grid Margin="0,5,0,0">
+
+                        <!-- mini tiles: disk / network / uptime -->
+                        <Grid Grid.Row="2">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="&#xE702;" FontFamily="{StaticResource IconFontFamily}" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1" Text="{Binding NetUpText, FallbackValue=''}" Style="{StaticResource CaptionStyle}" Margin="6,0,0,0" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" />
+
+                            <Border Grid.Column="0" Style="{StaticResource StatCardStyle}" CornerRadius="12" Padding="10,5">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="DISK C:" Style="{StaticResource StatMiniLabelStyle}" />
+                                    <TextBlock Text="{Binding DiskUsageText, FallbackValue='—'}" Style="{StaticResource StatMiniValueStyle}" FontSize="11" Margin="0,1,0,0" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="2" Style="{StaticResource StatCardStyle}" CornerRadius="12" Padding="10,5">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="NETWORK" Style="{StaticResource StatMiniLabelStyle}" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+                                        <TextBlock Text="&#xE701;" FontFamily="{StaticResource IconFontFamily}" FontSize="8.5" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding NetDownText, FallbackValue=''}" Style="{StaticResource StatMiniValueStyle}" FontSize="9.5" Margin="2,0,0,0" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" />
+                                        <TextBlock Text="&#xE702;" FontFamily="{StaticResource IconFontFamily}" FontSize="8.5" Foreground="{StaticResource TextSecondaryBrush}" Margin="7,0,0,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding NetUpText, FallbackValue=''}" Style="{StaticResource StatMiniValueStyle}" FontSize="9.5" Margin="2,0,0,0" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="4" Style="{StaticResource StatCardStyle}" CornerRadius="12" Padding="10,5">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="UP FOR" Style="{StaticResource StatMiniLabelStyle}" />
+                                    <TextBlock Text="{Binding UptimeText, FallbackValue='—'}" Style="{StaticResource StatMiniValueStyle}" FontSize="11" Margin="0,1,0,0" />
+                                </StackPanel>
+                            </Border>
                         </Grid>
+                    </Grid>
 
-                        <TextBlock Text="UPTIME" Style="{StaticResource MicroCaptionStyle}" Margin="0,10,0,0" />
-                        <TextBlock Text="{Binding UptimeText, FallbackValue='—'}" Style="{StaticResource CaptionStrongStyle}" Typography.NumeralAlignment="Tabular" />
-                    </StackPanel>
+                    <!-- right: top apps (full column height) -->
+                    <Border Grid.Column="2" Style="{StaticResource StatCardStyle}" Padding="11,8">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
 
-                    <!-- column 3: top apps -->
-                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="14,0,0,0">
-                        <TextBlock Text="TOP APPS" Style="{StaticResource MicroCaptionStyle}" />
-                        <ItemsControl ItemsSource="{Binding TopApps, FallbackValue={x:Null}}" Margin="0,4,0,0">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Margin="0,0,0,5">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding Name}" Style="{StaticResource CaptionStyle}" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Grid.Column="1" Text="{Binding CpuPercent, StringFormat={}{0:0}%}" Style="{StaticResource CaptionStrongStyle}" Margin="10,0,0,0" Typography.NumeralAlignment="Tabular" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <TextBlock Text="live · 2s"
-                                   Style="{StaticResource MicroCaptionStyle}"
-                                   Opacity="0.6"
-                                   Margin="0,2,0,0" />
-                    </StackPanel>
+                            <Grid Grid.Row="0">
+                                <TextBlock Text="TOP APPS · CPU" Style="{StaticResource StatMiniLabelStyle}" VerticalAlignment="Center" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Ellipse Width="5" Height="5" Fill="{StaticResource AccentGreenBrush}" />
+                                    <TextBlock Text="live · 2s" Style="{StaticResource StatMiniLabelStyle}" Margin="4,0,0,0" />
+                                </StackPanel>
+                            </Grid>
+
+                            <ItemsControl Grid.Row="1" ItemsSource="{Binding TopApps, FallbackValue={x:Null}}" Margin="0,7,0,0" VerticalAlignment="Top">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,7">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <Grid Grid.Row="0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0"
+                                                        Background="{StaticResource ChipBackgroundBrush}"
+                                                        CornerRadius="5"
+                                                        Width="17"
+                                                        Height="17">
+                                                    <TextBlock Text="{Binding Name, Converter={StaticResource AppInitialConverter}}"
+                                                               Style="{StaticResource StatBadgeTextStyle}"
+                                                               FontSize="9"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center" />
+                                                </Border>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Name}"
+                                                           Style="{StaticResource StatMiniValueStyle}"
+                                                           FontSize="10"
+                                                           Margin="7,0,0,0"
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding CpuPercent, StringFormat={}{0:0}%}"
+                                                           Style="{StaticResource StatMiniValueStyle}"
+                                                           FontSize="9.5"
+                                                           VerticalAlignment="Center"
+                                                           Typography.NumeralAlignment="Tabular" />
+                                            </Grid>
+                                            <Grid Grid.Row="1" Height="3" Margin="0,3,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="{Binding Fraction, Converter={StaticResource FractionToStarConverter}, Mode=OneWay}" />
+                                                    <ColumnDefinition Width="{Binding Fraction, Converter={StaticResource FractionRemainderConverter}, Mode=OneWay}" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Background="{StaticResource AccentGreenBrush}" CornerRadius="1.5,0,0,1.5" />
+                                                <Border Grid.Column="1" Background="{StaticResource ChipBackgroundBrush}" CornerRadius="0,1.5,1.5,0" />
+                                            </Grid>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                    </Border>
                 </Grid>
             </Grid>
 
@@ -616,8 +913,8 @@
               row centered with the output icon at the right edge.
             -->
             <Grid x:Name="MediaContent"
-                  Width="560"
-                  Height="190"
+                  Width="620"
+                  Height="200"
                   HorizontalAlignment="Center"
                   VerticalAlignment="Top"
                   Opacity="0"

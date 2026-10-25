@@ -10,8 +10,8 @@
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2011-0078D4)](https://github.com)
 [![UI](https://img.shields.io/badge/UI-WPF-9B4F96)](https://learn.microsoft.com/dotnet/desktop/wpf/)
-[![Tests](https://img.shields.io/badge/tests-96%2F96-30D158)](#testing)
-[![Release](https://img.shields.io/badge/download-v0.3.3-FF2D55)](https://github.com/cryoxyl-beep/aetherisle/releases/latest)
+[![Tests](https://img.shields.io/badge/tests-120%2F120-30D158)](#testing)
+[![Release](https://img.shields.io/badge/download-v0.5.0-FF2D55)](https://github.com/cryoxyl-beep/aetherisle/releases/latest)
 
 ### ⬇️ [**Download Aetherisle.exe**](https://github.com/cryoxyl-beep/aetherisle/releases/latest/download/Aetherisle.exe) — double-click and run. No install, no .NET, no admin.
 
@@ -52,7 +52,7 @@ Windows has no Dynamic Island — and the usual workarounds all hurt. Aetherisle
 **1 — The island (collapsed pill).** The everyday state: allow-listed album art on the
 left, volume icon (live % while adjusting, red when muted), system battery with charge
 state, 12-hour clock, and the radial audio visualizer reacting to real system sound.
-Drag it anywhere with **Shift + left-drag**.
+Drag it anywhere with **Shift + left-drag**; hide it instantly with **Ctrl + Shift**.
 
 ![1 — The island pill](docs/previews/1-island-pill.png)
 
@@ -80,10 +80,13 @@ the percentage right inside the ring. Allow-listed to your own devices.
 | 🔊 | **Volume glance** | Icon → live % while you change it → back to icon. Muted = red icon. All event-driven Core Audio |
 | 🔆 | **Brightness glance** | WMI event-driven; DDC/CI fallback for external monitors |
 | 🔋 | **System battery** | Charge %, charging bolt, green/amber/red — between volume and clock |
-| 📈 | **Live system stats** | New Stats tab: CPU, GPU, disk, RAM with bars, network ↓/↑, uptime and top apps by CPU — real performance counters, 2-second refresh, unavailable hardware hidden honestly |
+| 📈 | **Live system stats** | Stats tab: ring gauges for CPU / GPU / RAM, disk space, network ↓/↑, uptime and top apps by CPU — real performance counters, 2-second refresh, unavailable hardware hidden honestly |
 | 🎧 | **Earbud battery capsule** | Middle-click anywhere or double-tap the island — Airdopes 138 & Zeb Duke allow-listed, four battery channels polled (AEP × device/container/service + GATT) |
-| 🖱 | **Free repositioning** | **Ctrl + left-drag** the island anywhere via Windows native drag — collapsed or expanded; position persists across restarts |
-| 👻 | **Shift = full ghost mode** | The whole island becomes click-through: no hover-expand, every click and scroll lands on the app beneath — no need to move the island |
+| 🖱 | **Free repositioning** | **Shift + left-drag** the island anywhere — position persists across restarts and respects monitor bounds |
+| 👻 | **Shift = full ghost mode** | True OS-level click-through (WS_EX_TRANSPARENT): no hover-expand, every click and scroll lands on the app beneath; drag while holding Shift to move it |
+| 🙈 | **Ctrl + Shift = instant hide** | The island vanishes while both keys are held and returns the moment either is released |
+| 🌤 | **Live weather** | Real geo-located conditions (open-meteo) with today's high/low in the Nook view — no fabricated numbers when offline |
+| 🎵 | **Real source-app icon** | The now-playing badge shows the actual app icon extracted from Apple Music, Spotify or the playing executable |
 | 📌 | **Pinned state** | Pin the expanded panel; click outside to dismiss |
 | 📅 | **Nook tab** | Media card · mini-calendar (real dates) · pet slot reserved |
 | 🤖 | **Agents tab** | Local agent profiles (create/edit/delete, JSON-persisted) — the runtime dock for what's next |
@@ -114,8 +117,9 @@ dotnet publish src/GrumphySwarm.App/GrumphySwarm.App.csproj `
 | **Click** the pill (or the media card / artwork) | Open the media player — always an explicit action; hover never hijacks the view |
 | **Double-click** / **middle-click anywhere** | Earbud battery capsule |
 | **Hold Shift + scroll** over the island | Open the media player while the island stays click-through |
-| **Ctrl + left-drag on the island** | Move it anywhere — Windows' own native drag, works collapsed or expanded |
-| **Hold Shift** | Ghost mode: no hover-expand, and clicks around the island reach the tab beneath; on the island, left-drag moves it |
+| **Shift + left-drag on the island** | Move it anywhere — works while the island is fully click-through |
+| **Hold Shift** | Ghost mode: no hover-expand, clicks land beneath; **Shift + drag** moves the island |
+| **Hold Ctrl + Shift** | Hide the island completely until either key is released |
 | **Pin** button | Keep the panel open; click outside to unpin |
 | Tray icon → Exit | Clean shutdown |
 

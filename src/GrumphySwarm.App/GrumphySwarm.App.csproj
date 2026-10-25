@@ -14,9 +14,9 @@
     <LangVersion>latest</LangVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>aetherisle.ico</ApplicationIcon>
-    <Version>0.2.0</Version>
-    <Product>Grumphy Swarm</Product>
-    <Description>Dynamic Island-style notch host for Windows 11 (Milestone 2)</Description>
+    <Version>0.5.0</Version>
+    <Product>Aetherisle</Product>
+    <Description>Dynamic Island-style notch host for Windows 11</Description>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>

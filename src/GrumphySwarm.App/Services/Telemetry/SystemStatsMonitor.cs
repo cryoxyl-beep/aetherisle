@@ -36,6 +36,9 @@ public sealed class SystemStatsMonitor : IDisposable
 
     public event Action<SystemStatsSnapshot>? SnapshotAvailable;
 
+    /// <summary>Machine identity (CPU/GPU names, clock), raised once after Start.</summary>
+    public event Action<MachineInfo>? MachineInfoAvailable;
+
     public void Start()
     {
         lock (_gate)
@@ -55,6 +58,81 @@ public sealed class SystemStatsMonitor : IDisposable
             _thread.SetApartmentState(ApartmentState.MTA);
             _thread.Start(_cancellation.Token);
         }
+    }
+
+    private static MachineInfo? ReadMachineInfo()
+    {
+        try
+        {
+            string? cpuName = null;
+            string? clockText = null;
+            using (var searcher = new ManagementObjectSearcher(
+                "root\\CIMv2",
+                "SELECT Name, MaxClockSpeed FROM Win32_Processor"))
+            {
+                foreach (var item in searcher.Get().Cast<ManagementObject>())
+                {
+                    cpuName = item["Name"] as string;
+                    if (item["MaxClockSpeed"] is { } clock && Convert.ToDouble(clock) > 0)
+                    {
+                        clockText = $"{Convert.ToDouble(clock) / 1000:0.#} GHz";
+                    }
+
+                    break;
+                }
+            }
+
+            string? gpuName = null;
+            using (var searcher = new ManagementObjectSearcher(
+                "root\\CIMv2",
+                "SELECT Name FROM Win32_VideoController"))
+            {
+                foreach (var item in searcher.Get().Cast<ManagementObject>())
+                {
+                    if (item["Name"] is string name && !string.IsNullOrWhiteSpace(name))
+                    {
+                        gpuName = name;
+                        break;
+                    }
+                }
+            }
+
+            return new MachineInfo(
+                CpuName: cpuName is null ? string.Empty : StatsPresenters.ShortenCpuName(cpuName),
+                CpuClockText: clockText ?? string.Empty,
+                GpuName: gpuName ?? string.Empty,
+                LogicalProcessorCount: Environment.ProcessorCount,
+                Timestamp: DateTimeOffset.Now);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static (double? UsedGb, double? TotalGb) ReadSystemDisk()
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(
+                "root\\CIMv2",
+                "SELECT Size, FreeSpace FROM Win32_LogicalDisk WHERE DeviceID = 'C:'");
+            foreach (var item in searcher.Get().Cast<ManagementObject>())
+            {
+                var size = Convert.ToDouble(item["Size"]);
+                var free = Convert.ToDouble(item["FreeSpace"]);
+                if (size > 0)
+                {
+                    return ((size - free) / (1024 * 1024 * 1024), size / (1024 * 1024 * 1024));
+                }
+            }
+        }
+        catch
+        {
+            // Fall through — the UI shows "—" for unreadable disk space.
+        }
+
+        return (null, null);
     }
 
     private void SampleLoop(object? state)
@@ -88,6 +166,12 @@ public sealed class SystemStatsMonitor : IDisposable
         RefreshNetworkCounters();
         RefreshGpuCounters();
         _lastProcessSample = SampleProcesses();
+
+        var machine = ReadMachineInfo();
+        if (machine is not null)
+        {
+            MachineInfoAvailable?.Invoke(machine);
+        }
 
         while (!cancellation.IsCancellationRequested)
         {
@@ -158,6 +242,7 @@ public sealed class SystemStatsMonitor : IDisposable
         }
 
         var (ramUsed, ramTotal) = ReadMemory();
+        var (diskUsed, diskTotal) = ReadSystemDisk();
         var topApps = ComputeTopProcesses(cores);
 
         return new SystemStatsSnapshot(
@@ -166,6 +251,8 @@ public sealed class SystemStatsMonitor : IDisposable
             RamUsedGb: ramUsed,
             RamTotalGb: ramTotal,
             DiskPercent: disk,
+            DiskUsedGb: diskUsed,
+            DiskTotalGb: diskTotal,
             NetDownBytesPerSec: down,
             NetUpBytesPerSec: up,
             Uptime: TimeSpan.FromMilliseconds(Environment.TickCount64),
@@ -347,7 +434,7 @@ public sealed class SystemStatsMonitor : IDisposable
             sample.Process.Dispose();
         }
 
-        return apps.OrderByDescending(a => a.CpuPercent).Take(3).ToList();
+        return apps.OrderByDescending(a => a.CpuPercent).Take(4).ToList();
     }
 
     public void Dispose()

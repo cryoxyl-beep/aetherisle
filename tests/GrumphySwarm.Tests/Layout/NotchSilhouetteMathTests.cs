@@ -31,7 +31,7 @@ public class NotchSilhouetteMathTests
 
         // All states share the same design language: fully rounded corners.
         Assert.True(panel.TopRadius > pill.TopRadius);
-        Assert.True(media.Height > panel.Height);
+        Assert.True(panel.Height > media.Height); // panel is the tallest island state
         Assert.Equal(panel.BottomRadius, panel.TopRadius);
         Assert.Equal(media.BottomRadius, media.TopRadius);
 

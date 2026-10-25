@@ -41,6 +41,12 @@ public partial class NotchWindow : Window
         _logger = logger;
         InitializeComponent();
 
+        _modifierWatchdog = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1),
+        };
+        _modifierWatchdog.Tick += (_, _) => OnRecoveryWatchdogTick();
+
         DataContext = viewModel;
 
         // The island is one contiguous hit-test region (pill + expanded panel),
@@ -70,6 +76,12 @@ public partial class NotchWindow : Window
         Island.SizeChanged += (_, _) => RefreshDragCache();
         Dispatcher.BeginInvoke(RefreshDragCache, System.Windows.Threading.DispatcherPriority.Background);
         InstallDismissalAndMiddleClickHook();
+        InstallKeyboardHook();
+        _modifierWatchdog.Start();
+
+        // Any expand request (tray "Show", second-instance activation) also
+        // heals a hidden/cloaked window — the reliable recovery path.
+        _viewModel.StateChanged += OnStateChangedEnsureVisible;
 
         SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
     }
@@ -181,6 +193,15 @@ public partial class NotchWindow : Window
                 handled = true;
                 return new IntPtr(NativeMethods.MA_NOACTIVATE);
 
+            case NativeMethods.WM_SYSCOMMAND when (wParam.ToInt64() & 0xFFF0) == NativeMethods.SC_MINIMIZE:
+                // A minimized borderless taskbar-less window is an INVISIBLE
+                // window — apps that toggle fullscreen can minimize topmost
+                // windows on their way in. Refuse; the modifier watchdog also
+                // re-shows the window if anything else hides it.
+                _logger.LogInformation("Minimize request blocked (external window toggle).");
+                handled = true;
+                return IntPtr.Zero;
+
             case NativeMethods.WM_DPICHANGED:
             {
                 var newDpi = NativeMethods.GetUnsignedLowWord(wParam);
@@ -222,9 +243,10 @@ public partial class NotchWindow : Window
 
     /// <summary>
     /// Hit-test routing:
-    ///   - Shift held → the ENTIRE island is click-through (full ghost mode);
-    ///     clicks and wheels land on whatever is behind it. The Shift+scroll
-    ///     gesture is handled globally in the mouse hook.
+    ///   - Shift ghost mode is handled by toggling WS_EX_TRANSPARENT on the
+    ///     window itself (see the modifier watchdog): HTTRANSPARENT can only
+    ///     pass clicks to same-process windows, so it could never make the
+    ///     island click-through for other apps.
     ///   - Ctrl held → the island is a native caption (left-drag moves the
     ///     window through Windows' own drag loop); outside stays transparent.
     ///   - Otherwise → silhouette-exact island hit / transparent elsewhere.
@@ -245,14 +267,6 @@ public partial class NotchWindow : Window
 
             var windowPoint = PointFromScreen(new Point(screenX, screenY));
             var islandPoint = TranslatePoint(windowPoint, Island);
-
-            if (NativeMethods.IsShiftHeld())
-            {
-                // Full ghost: everything passes through.
-                result = new IntPtr(NativeMethods.HTTRANSPARENT);
-                return true;
-            }
-
             var onIsland = Island.HitTestSilhouette(islandPoint);
 
             if (NativeMethods.IsCtrlHeld())
@@ -277,16 +291,245 @@ public partial class NotchWindow : Window
         return false;
     }
 
+    // --------------------------------------------- modifier gestures (Phase 1)
+    //
+    // Event-driven: a WH_KEYBOARD_LL hook watches only the modifier keys and
+    // schedules a state update when their combination CHANGES (the callback is
+    // two integer reads — fast enough that Windows never evicts it). A 1 s
+    // recovery watchdog re-syncs the same state in case a key event was ever
+    // missed, and heals a window that something external hid or cloaked.
+
+    private readonly System.Windows.Threading.DispatcherTimer _modifierWatchdog;
+    private bool _ghostActive;
+    private bool _hiddenByCtrlShift;
+    private IntPtr _keyboardHook;
+    private NativeMethods.LowLevelKeyboardProc? _keyboardProc;
+    private int _lastHookShift = -1;
+    private int _lastHookCtrl = -1;
+
+    private void InstallKeyboardHook()
+    {
+        if (_keyboardHook != IntPtr.Zero)
+        {
+            return;
+        }
+
+        _keyboardProc = LowLevelKeyboardProc;
+        _keyboardHook = NativeMethods.SetWindowsHookEx(
+            NativeMethods.WH_KEYBOARD_LL,
+            _keyboardProc,
+            NativeMethods.GetModuleHandle(null),
+            0);
+
+        if (_keyboardHook == IntPtr.Zero)
+        {
+            _logger.LogWarning("Failed to install keyboard hook ({Error}); modifier gestures fall back to the 1 s watchdog.", Marshal.GetLastWin32Error());
+        }
+        else
+        {
+            _logger.LogInformation("Global keyboard hook active (Shift ghost/drag, Ctrl+Shift hide).");
+        }
+    }
+
+    private IntPtr LowLevelKeyboardProc(int code, IntPtr wParam, IntPtr lParam)
+    {
+        try
+        {
+            if (code >= 0)
+            {
+                var message = wParam.ToInt64();
+                if (message is NativeMethods.WM_KEYDOWN or NativeMethods.WM_KEYUP
+                    or NativeMethods.WM_SYSKEYDOWN or NativeMethods.WM_SYSKEYUP)
+                {
+                    var data = Marshal.PtrToStructure<NativeMethods.KBDLLHOOKSTRUCT>(lParam);
+                    if (data.vkCode is NativeMethods.VK_SHIFT or NativeMethods.VK_LSHIFT or NativeMethods.VK_RSHIFT
+                        or NativeMethods.VK_CONTROL or NativeMethods.VK_LCONTROL or NativeMethods.VK_RCONTROL)
+                    {
+                        // Read the authoritative state here (hook thread, O(1))
+                        // and only wake the dispatcher when it changed.
+                        var shift = NativeMethods.IsShiftHeld() ? 1 : 0;
+                        var ctrl = NativeMethods.IsCtrlHeld() ? 1 : 0;
+                        if (shift != _lastHookShift || ctrl != _lastHookCtrl)
+                        {
+                            _lastHookShift = shift;
+                            _lastHookCtrl = ctrl;
+                            Dispatcher.BeginInvoke(UpdateModifierState);
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // A hook callback must never throw — Windows would evict the hook.
+        }
+
+        return NativeMethods.CallNextHookEx(_keyboardHook, code, wParam, lParam);
+    }
+
+    /// <summary>
+    /// Applies the current modifier combination:
+    ///   - Shift only      → true click-through ghost (WS_EX_TRANSPARENT);
+    ///                       an expanded island is collapsed first, because
+    ///                       ghost mode swallows the MouseLeave that would.
+    ///   - Shift + drag    → reposition (handled in the mouse hook).
+    ///   - Ctrl + Shift    → hide the island entirely (takes precedence;
+    ///                       hiding never starts a drag).
+    ///   - neither         → normal behavior.
+    /// </summary>
+    private void UpdateModifierState()
+    {
+        try
+        {
+            var shift = NativeMethods.IsShiftHeld();
+            var ctrl = NativeMethods.IsCtrlHeld();
+
+            if (shift && ctrl)
+            {
+                if (!_hiddenByCtrlShift)
+                {
+                    _hiddenByCtrlShift = true;
+                    NativeMethods.ShowWindow(_hwnd, NativeMethods.SW_HIDE);
+                    _logger.LogInformation("Island hidden (Ctrl+Shift held).");
+                }
+
+                return;
+            }
+
+            if (_hiddenByCtrlShift)
+            {
+                _hiddenByCtrlShift = false;
+                NativeMethods.ShowWindow(_hwnd, NativeMethods.SW_SHOWNOACTIVATE);
+                RepositionToMonitor("Ctrl+Shift released");
+                _logger.LogInformation("Island shown again (Ctrl+Shift released).");
+            }
+
+            var ghostDesired = shift;
+            if (ghostDesired != _ghostActive)
+            {
+                if (ghostDesired && _viewModel.State != NotchState.Collapsed)
+                {
+                    // Ghost swallows all mouse input: end hover expansion now
+                    // so the island cannot stay stuck open.
+                    _viewModel.PointerLeft();
+                }
+
+                ApplyGhostMode(ghostDesired);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Modifier state update failed (ignored).");
+        }
+    }
+
+    // --------------------------------------------- recovery watchdog (Phase 4)
+
+    /// <summary>
+    /// 1 s safety net: re-syncs modifier state (missed key events) and heals a
+    /// window that something external hid, cloaked (fullscreen transitions —
+    /// the "island vanished but tray is alive" bug), or moved off-monitor.
+    /// It never recreates the window and never touches a deliberately hidden
+    /// (Ctrl+Shift) one.
+    /// </summary>
+    private void OnRecoveryWatchdogTick()
+    {
+        try
+        {
+            UpdateModifierState();
+
+            if (_hiddenByCtrlShift || _hwnd == IntPtr.Zero)
+            {
+                return;
+            }
+
+            if (!NativeMethods.IsWindowVisible(_hwnd))
+            {
+                NativeMethods.ShowWindow(_hwnd, NativeMethods.SW_SHOWNOACTIVATE);
+                RepositionToMonitor("recovered from external hide");
+                _logger.LogWarning("Island window was hidden externally — restored.");
+                return;
+            }
+
+            if (NativeMethods.IsWindowCloaked(_hwnd))
+            {
+                // DWM cloak: a fullscreen app transition hid the window at the
+                // compositor level. A hide/show cycle + re-topmost clears it.
+                _logger.LogWarning("Island window is DWM-cloaked — forcing recloak recovery.");
+                NativeMethods.ShowWindow(_hwnd, NativeMethods.SW_HIDE);
+                NativeMethods.ShowWindow(_hwnd, NativeMethods.SW_SHOWNOACTIVATE);
+                NativeMethods.SetWindowPos(
+                    _hwnd,
+                    NativeMethods.HWND_TOPMOST,
+                    0, 0, 0, 0,
+                    NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE
+                    | NativeMethods.SWP_NOOWNERZORDER);
+                return;
+            }
+
+            if (NativeMethods.GetWindowRect(_hwnd, out var rect)
+                && (rect.Right - rect.Left) > 0
+                && (rect.Left > _dragMonitor.Right || rect.Right < _dragMonitor.Left
+                    || rect.Top > _dragMonitor.Bottom || rect.Bottom < _dragMonitor.Top))
+            {
+                RepositionToMonitor("recovered from off-monitor position");
+                _logger.LogWarning("Island window was moved off-monitor — restored.");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Recovery watchdog tick failed (ignored).");
+        }
+    }
+
+    private void OnStateChangedEnsureVisible(NotchState state)
+    {
+        if (state is NotchState.Expanded or NotchState.Pinned
+            && _hwnd != IntPtr.Zero
+            && !_hiddenByCtrlShift
+            && (!NativeMethods.IsWindowVisible(_hwnd) || NativeMethods.IsWindowCloaked(_hwnd)))
+        {
+            NativeMethods.ShowWindow(_hwnd, NativeMethods.SW_SHOWNOACTIVATE);
+            RepositionToMonitor("recovered on expand request");
+            _logger.LogInformation("Expand request healed a hidden/cloaked island window.");
+        }
+    }
+
+    /// <summary>Toggles the real OS-level click-through style.</summary>
+    private void ApplyGhostMode(bool enabled)
+    {
+        if (_hwnd == IntPtr.Zero)
+        {
+            return;
+        }
+
+        var extended = NativeMethods.GetWindowLong(_hwnd, NativeMethods.GWL_EXSTYLE);
+        var flags = NativeMethods.WS_EX_TRANSPARENT | NativeMethods.WS_EX_LAYERED;
+        extended = enabled ? extended | flags : extended & ~flags;
+        NativeMethods.SetWindowLong(_hwnd, NativeMethods.GWL_EXSTYLE, extended);
+        NativeMethods.SetWindowPos(
+            _hwnd,
+            IntPtr.Zero,
+            0, 0, 0, 0,
+            NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOZORDER
+            | NativeMethods.SWP_FRAMECHANGED | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_NOOWNERZORDER);
+        _ghostActive = enabled;
+        _logger.LogInformation("Ghost mode {State}.", enabled ? "ON (full click-through)" : "OFF");
+    }
+
     private const int HTCAPTION = 2;
 
     // --------------------------------------------- global mouse hook (always on)
     //
-    // The low-level hook now serves only two rare, low-frequency gestures:
+    // The low-level hook serves four rare, low-frequency gestures:
     //   - Middle button anywhere → toggle the earbud battery capsule.
-    //   - Left/right click outside the island while PINNED → dismiss the panel.
-    // Island REPOSITIONING no longer uses the hook at all: Shift+drag is the
-    // OS's own native caption drag (WM_NCHITTEST → HTCAPTION), which Windows
-    // runs in its internal move loop. Nothing here can be silently evicted.
+    //   - Shift + left-drag over the island → MOVE it (the ghost window is
+    //     WS_EX_TRANSPARENT, so the hook is the only component that still
+    //     sees this input; the callback stays pure math + P/Invoke).
+    //   - Shift + wheel over the island → open the media player view.
+    //   - Left/right click outside the island while PINNED → dismiss.
+    // Ctrl+drag (window NOT in ghost mode) is the OS's own native caption
+    // drag (WM_NCHITTEST → HTCAPTION) and never touches this hook.
 
     // Native-drag bookkeeping: base placement (offset-zero) and DPI scale are
     // cached so the window position can be converted back into drag offsets.
@@ -295,6 +538,12 @@ public partial class NotchWindow : Window
     private int _baseX, _baseY, _winW, _winH; // offset-zero placement, physical px
     private bool _nativeDragging;
     private Rect _grabRectScreen; // island rect + margin (for the wheel gesture)
+
+    // Shift-drag state (all physical screen pixels, hook thread only).
+    private bool _shiftDragging;
+    private int _shiftDragOriginX, _shiftDragOriginY;
+    private int _shiftDragBaseX, _shiftDragBaseY;
+    private long _lastDragLogTick;
 
     private void RefreshDragCache()
     {
@@ -392,6 +641,71 @@ public partial class NotchWindow : Window
                         // Toggle the battery capsule on middle click, anywhere.
                         Dispatcher.BeginInvoke(() => _viewModel.ToggleBattery());
                         break;
+
+                    case NativeMethods.WM_LBUTTONDOWN when NativeMethods.IsShiftHeld()
+                        && !_hiddenByCtrlShift
+                        && _grabRectScreen.Width > 0
+                        && _grabRectScreen.Contains(screenPoint)
+                        && NativeMethods.GetWindowRect(_hwnd, out var grabRect):
+                        // Shift + press on the island: start a hook-driven drag.
+                        // The press is swallowed so the app below never sees it.
+                        _shiftDragging = true;
+                        _shiftDragOriginX = data.pt.X;
+                        _shiftDragOriginY = data.pt.Y;
+                        _shiftDragBaseX = grabRect.Left;
+                        _shiftDragBaseY = grabRect.Top;
+                        _logger.LogInformation(
+                            "Shift-drag start at {X},{Y} (window {WX},{WY}, grab {GX},{GY} {GW}x{GH}).",
+                            data.pt.X, data.pt.Y, grabRect.Left, grabRect.Top,
+                            (int)_grabRectScreen.X, (int)_grabRectScreen.Y,
+                            (int)_grabRectScreen.Width, (int)_grabRectScreen.Height);
+                        return new IntPtr(1);
+
+                    case NativeMethods.WM_MOUSEMOVE when _shiftDragging:
+                        var moved = NativeMethods.SetWindowPos(
+                            _hwnd,
+                            IntPtr.Zero,
+                            _shiftDragBaseX + (data.pt.X - _shiftDragOriginX),
+                            _shiftDragBaseY + (data.pt.Y - _shiftDragOriginY),
+                            0, 0,
+                            NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOZORDER
+                            | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_NOOWNERZORDER);
+                        if ((System.Environment.TickCount64 / 250) != _lastDragLogTick)
+                        {
+                            _lastDragLogTick = System.Environment.TickCount64 / 250;
+                            _logger.LogInformation(
+                                "Shift-drag move to {X},{Y}: SetWindowPos={Ok}.",
+                                _shiftDragBaseX + (data.pt.X - _shiftDragOriginX),
+                                _shiftDragBaseY + (data.pt.Y - _shiftDragOriginY),
+                                moved);
+                        }
+
+                        break;
+
+                    case NativeMethods.WM_MOUSEMOVE when NativeMethods.IsShiftHeld():
+                        // Diagnostics: moves arriving while Shift is held but no
+                        // drag is active (the press was never swallowed).
+                        if ((System.Environment.TickCount64 / 250) != _lastDragLogTick)
+                        {
+                            _lastDragLogTick = System.Environment.TickCount64 / 250;
+                            _logger.LogInformation(
+                                "Shift held, move at {X},{Y}, dragging={Dragging}, grabW={W}.",
+                                data.pt.X, data.pt.Y, _shiftDragging, (int)_grabRectScreen.Width);
+                        }
+
+                        break;
+
+                    case NativeMethods.WM_LBUTTONUP when _shiftDragging:
+                        _shiftDragging = false;
+                        // Persist + clamp on the UI thread (needs the dispatcher).
+                        Dispatcher.BeginInvoke(() =>
+                        {
+                            ClampWindowInsideMonitor();
+                            SyncOffsetsFromWindowPosition();
+                            _viewModel.SaveDragOffset();
+                            RefreshDragCache();
+                        });
+                        return new IntPtr(1);
 
                     case NativeMethods.WM_MOUSEWHEEL when NativeMethods.IsShiftHeld() && _grabRectScreen.Contains(screenPoint):
                         // Shift + scroll over the (fully click-through) island:
@@ -502,11 +816,18 @@ public partial class NotchWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+        _modifierWatchdog.Stop();
 
         if (_mouseHook != IntPtr.Zero)
         {
             NativeMethods.UnhookWindowsHookEx(_mouseHook);
             _mouseHook = IntPtr.Zero;
+        }
+
+        if (_keyboardHook != IntPtr.Zero)
+        {
+            NativeMethods.UnhookWindowsHookEx(_keyboardHook);
+            _keyboardHook = IntPtr.Zero;
         }
 
         _hwndSource?.RemoveHook(WndProc);

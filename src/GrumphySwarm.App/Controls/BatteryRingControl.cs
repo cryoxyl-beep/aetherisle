@@ -30,7 +30,7 @@ public sealed class BatteryRingControl : FrameworkElement
         typeof(BatteryRingControl),
         new PropertyMetadata(new SolidColorBrush(Color.FromRgb(0x30, 0xD1, 0x58))));
 
-    private static readonly PenTracker Tracker = new();
+    private readonly PenTracker Tracker = new();
 
     public int? Percent
     {
@@ -76,10 +76,19 @@ public sealed class BatteryRingControl : FrameworkElement
         // Progress arc + the percentage written INSIDE the ring.
         if (Percent is { } percent)
         {
-            Tracker.Geometry(radius, percent, out var geometry);
-            drawingContext.PushTransform(new TranslateTransform(center.X, center.Y));
-            drawingContext.DrawGeometry(null, fillPen, geometry);
-            drawingContext.Pop();
+            if (percent >= 99.5)
+            {
+                // A 360° arc is degenerate (start == end renders nothing), so a
+                // full battery draws the complete circle directly.
+                drawingContext.DrawEllipse(null, fillPen, center, radius, radius);
+            }
+            else
+            {
+                Tracker.Geometry(radius, percent, out var geometry);
+                drawingContext.PushTransform(new TranslateTransform(center.X, center.Y));
+                drawingContext.DrawGeometry(null, fillPen, geometry);
+                drawingContext.Pop();
+            }
 
             DrawPercentText(drawingContext, center, radius, percent);
         }
@@ -124,17 +133,22 @@ public sealed class BatteryRingControl : FrameworkElement
         drawingContext.DrawText(sign, new Point(startX + number.Width + 1, center.Y - (number.Height / 2) + (number.Height - sign.Height) * 0.55));
     }
 
-    /// <summary>Caches the arc geometry per (radius, percent bucket) to avoid per-frame allocations.</summary>
+    /// <summary>
+    /// Caches the arc geometry per (radius, percent). The geometry is REBUILT
+    /// as a new frozen instance on change — a frozen StreamGeometry can never
+    /// be reopened, and mutating a shared one made the whole island's render
+    /// pass throw (the "island randomly disappears" bug).
+    /// </summary>
     private sealed class PenTracker
     {
         private int _cachedPercent = -1;
         private double _cachedRadius;
-        private readonly StreamGeometry _geometry = new();
+        private StreamGeometry? _geometry;
 
         public void Geometry(double radius, int percent, out StreamGeometry geometry)
         {
             percent = Math.Clamp(percent, 0, 100);
-            if (_cachedPercent == percent && Math.Abs(_cachedRadius - radius) < 0.01)
+            if (_geometry is not null && _cachedPercent == percent && Math.Abs(_cachedRadius - radius) < 0.01)
             {
                 geometry = _geometry;
                 return;
@@ -148,34 +162,37 @@ public sealed class BatteryRingControl : FrameworkElement
             var endRadians = endAngle * Math.PI / 180;
             var largeArc = sweep > 180;
 
-            var context = _geometry.Open();
-            if (percent == 0)
+            var built = new StreamGeometry();
+            using (var context = built.Open())
             {
-                // Degenerate: a zero-length line keeps the round cap visible.
-                context.BeginFigure(new Point(radius, 0), false, false);
-                context.LineTo(new Point(radius + 0.01, 0), true, false);
-            }
-            else
-            {
-                var startPoint = new Point(radius * Math.Cos(startRadians), radius * Math.Sin(startRadians));
-                var endPoint = new Point(radius * Math.Cos(endRadians), radius * Math.Sin(endRadians));
-                context.BeginFigure(startPoint, false, false);
-                context.ArcTo(
-                    endPoint,
-                    new Size(radius, radius),
-                    0,
-                    largeArc,
-                    SweepDirection.Clockwise,
-                    true,
-                    false);
+                if (percent == 0)
+                {
+                    // Degenerate: a zero-length line keeps the round cap visible.
+                    context.BeginFigure(new Point(radius, 0), false, false);
+                    context.LineTo(new Point(radius + 0.01, 0), true, false);
+                }
+                else
+                {
+                    var startPoint = new Point(radius * Math.Cos(startRadians), radius * Math.Sin(startRadians));
+                    var endPoint = new Point(radius * Math.Cos(endRadians), radius * Math.Sin(endRadians));
+                    context.BeginFigure(startPoint, false, false);
+                    context.ArcTo(
+                        endPoint,
+                        new Size(radius, radius),
+                        0,
+                        largeArc,
+                        SweepDirection.Clockwise,
+                        true,
+                        false);
+                }
             }
 
-            context.Close();
-            _geometry.Freeze();
+            built.Freeze();
 
+            _geometry = built;
             _cachedPercent = percent;
             _cachedRadius = radius;
-            geometry = _geometry;
+            geometry = built;
         }
     }
 }

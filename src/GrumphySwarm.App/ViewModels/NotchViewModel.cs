@@ -40,6 +40,8 @@ public partial class NotchViewModel : ObservableObject, IDisposable
     private readonly IBluetoothBatteryMonitor _bluetoothMonitor;
     private readonly ISystemBatteryMonitor _systemBatteryMonitor;
     private readonly Services.Telemetry.SystemStatsMonitor _statsMonitor;
+    private readonly Services.Weather.WeatherMonitor _weatherMonitor;
+    private readonly Services.Media.AppIconService _appIcons = new();
     private readonly ILogger<NotchViewModel> _logger;
     private readonly Dispatcher _dispatcher;
     private readonly TransientStatusController _transient = new();
@@ -73,6 +75,7 @@ public partial class NotchViewModel : ObservableObject, IDisposable
         IBluetoothBatteryMonitor bluetoothMonitor,
         ISystemBatteryMonitor systemBatteryMonitor,
         Services.Telemetry.SystemStatsMonitor statsMonitor,
+        Services.Weather.WeatherMonitor weatherMonitor,
         AudioSpectrumMonitor spectrum,
         AgentsViewModel agents,
         ILogger<NotchViewModel> logger)
@@ -86,6 +89,7 @@ public partial class NotchViewModel : ObservableObject, IDisposable
         _bluetoothMonitor = bluetoothMonitor;
         _systemBatteryMonitor = systemBatteryMonitor;
         _statsMonitor = statsMonitor;
+        _weatherMonitor = weatherMonitor;
         _logger = logger;
         _dispatcher = Dispatcher.CurrentDispatcher;
         Agents = agents;
@@ -149,6 +153,9 @@ public partial class NotchViewModel : ObservableObject, IDisposable
         _bluetoothMonitor.StatusChanged += OnEarbudStatusChanged;
         _systemBatteryMonitor.BatteryChanged += OnSystemBatteryChanged;
         _statsMonitor.SnapshotAvailable += OnStatsSnapshot;
+        _statsMonitor.MachineInfoAvailable += OnMachineInfo;
+        _weatherMonitor.WeatherChanged += OnWeatherChanged;
+        _weatherMonitor.FetchFailed += OnWeatherFailed;
 
         ReducedMotion = settings.ReducedMotion;
         UpdateClock(DateTime.Now);
@@ -186,6 +193,9 @@ public partial class NotchViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private NotchCalendarModel? calendar;
+
+    [ObservableProperty]
+    private string shortDateText = string.Empty;
 
     // Transient system status (pill center / panel header center).
     [ObservableProperty]
@@ -234,7 +244,27 @@ public partial class NotchViewModel : ObservableObject, IDisposable
     private string mediaSubtitle = string.Empty;
 
     [ObservableProperty]
+    private string mediaArtistText = string.Empty;
+
+    [ObservableProperty]
+    private string mediaTotalText = string.Empty;
+
+    [ObservableProperty]
     private string mediaStatusText = string.Empty;
+
+    // Source-app badge on the Nook artwork: the real app icon when extractable,
+    // else the tinted note fallback.
+    [ObservableProperty]
+    private bool mediaSourceBadgeVisible;
+
+    [ObservableProperty]
+    private string mediaSourceBadgeBrush = "#FC3C44";
+
+    [ObservableProperty]
+    private string mediaSourceBadgeToolTip = string.Empty;
+
+    [ObservableProperty]
+    private ImageSource? mediaSourceAppIcon;
 
     [ObservableProperty]
     private string playPauseGlyph = StatusPresenters.PlayGlyph;
@@ -308,6 +338,9 @@ public partial class NotchViewModel : ObservableObject, IDisposable
     private string ramText = "—";
 
     [ObservableProperty]
+    private string ramFreeText = string.Empty;
+
+    [ObservableProperty]
     private double ramFraction;
 
     [ObservableProperty]
@@ -320,7 +353,92 @@ public partial class NotchViewModel : ObservableObject, IDisposable
     private string uptimeText = "—";
 
     [ObservableProperty]
+    private string diskUsageText = "—";
+
+    [ObservableProperty]
+    private string cpuName = "CPU";
+
+    [ObservableProperty]
+    private string gpuName = "GPU";
+
+    [ObservableProperty]
+    private string cpuBadgeText = string.Empty;
+
+    [ObservableProperty]
     private IReadOnlyList<AppUsage> topApps = [];
+
+    // Weather card (Nook tab) — real fetched data only.
+    [ObservableProperty]
+    private bool hasWeather;
+
+    [ObservableProperty]
+    private string weatherTempText = "—";
+
+    [ObservableProperty]
+    private string weatherConditionText = "Checking…";
+
+    [ObservableProperty]
+    private string weatherCityText = string.Empty;
+
+    [ObservableProperty]
+    private string weatherHighText = "—";
+
+    [ObservableProperty]
+    private string weatherLowText = "—";
+
+    [ObservableProperty]
+    private bool weatherIsClear;
+
+    // Internet speed panel removed (user request) — Stats shows top apps
+    // across the full right column instead.
+
+    private void OnWeatherChanged(WeatherState weather)
+    {
+        _dispatcher.BeginInvoke(() =>
+        {
+            var (label, isClear) = WeatherCodes.Map(weather.WeatherCode);
+            HasWeather = true;
+            WeatherTempText = StatsPresenters.FormatTemperature(weather.TempC);
+            WeatherConditionText = label;
+            WeatherCityText = weather.City;
+            WeatherHighText = StatsPresenters.FormatTemperature(weather.HighC);
+            WeatherLowText = StatsPresenters.FormatTemperature(weather.LowC);
+            WeatherIsClear = isClear;
+        });
+    }
+
+    private void OnWeatherFailed()
+    {
+        _dispatcher.BeginInvoke(() =>
+        {
+            if (HasWeather)
+            {
+                return; // keep the last real observation until fresh data arrives
+            }
+
+            WeatherConditionText = "Weather unavailable";
+        });
+    }
+
+    private void OnMachineInfo(MachineInfo machine)
+    {
+        _dispatcher.BeginInvoke(() =>
+        {
+            if (!string.IsNullOrEmpty(machine.CpuName))
+            {
+                CpuName = machine.CpuName;
+            }
+
+            if (!string.IsNullOrEmpty(machine.GpuName))
+            {
+                GpuName = machine.GpuName.Length > 18 ? machine.GpuName[..18].Trim() : machine.GpuName;
+            }
+
+            CpuBadgeText = string.IsNullOrEmpty(machine.CpuClockText)
+                ? $"{machine.LogicalProcessorCount} threads"
+                : $"{machine.CpuClockText} · {machine.LogicalProcessorCount}T";
+        });
+    }
 
     /// <summary>Bound two-way by the Nook tab chip.</summary>
     public bool IsNookTab
@@ -526,6 +644,7 @@ public partial class NotchViewModel : ObservableObject, IDisposable
         IsPinned = transition.To == NotchState.Pinned;
         PinGlyph = IsPinned ? UnpinGlyphValue : PinGlyphValue;
         PinToolTip = IsPinned ? "Unpin notch" : "Pin notch";
+        OnPropertyChanged(nameof(LockGlyph));
 
         _logger.LogInformation(
             "Notch {From} -> {To} ({Reason}).",
@@ -626,10 +745,14 @@ public partial class NotchViewModel : ObservableObject, IDisposable
             GpuFraction = StatsPresenters.BarFraction(snapshot.GpuPercent);
             DiskFraction = StatsPresenters.BarFraction(snapshot.DiskPercent);
             RamText = StatsPresenters.FormatMemory(snapshot.RamUsedGb, snapshot.RamTotalGb);
+            RamFreeText = snapshot.RamTotalGb > snapshot.RamUsedGb
+                ? $"{snapshot.RamTotalGb - snapshot.RamUsedGb:0.0} GB free"
+                : string.Empty;
             RamFraction = StatsPresenters.MemoryFraction(snapshot.RamUsedGb, snapshot.RamTotalGb);
             NetDownText = StatsPresenters.FormatBytesPerSecond(snapshot.NetDownBytesPerSec);
             NetUpText = StatsPresenters.FormatBytesPerSecond(snapshot.NetUpBytesPerSec);
             UptimeText = StatsPresenters.FormatUptime(snapshot.Uptime);
+            DiskUsageText = StatsPresenters.FormatDisk(snapshot.DiskUsedGb, snapshot.DiskTotalGb);
             TopApps = snapshot.TopApps;
         });
     }
@@ -672,11 +795,16 @@ public partial class NotchViewModel : ObservableObject, IDisposable
         {
             MediaTitle = StatusPresenters.MediaTitle(media);
             MediaSubtitle = StatusPresenters.MediaSubtitle(media);
+            MediaArtistText = media is null || string.IsNullOrWhiteSpace(media.Artist)
+                ? StatusPresenters.MediaSubtitle(media)
+                : media.Artist;
             MediaStatusText = media is null ? string.Empty : StatusPresenters.MediaStatusText(media.Status);
             PlayPauseGlyph = StatusPresenters.PlayPauseGlyph(media?.Status ?? MediaPlaybackStatus.Unknown);
             HasActiveMedia = StatusPresenters.HasUsableMedia(media);
             _isPlaying = media?.Status == MediaPlaybackStatus.Playing;
 
+            UpdateSourceBadge(media);
+            UpdateMediaTotalText();
             CanPlayPause = media is not null && HasActiveMedia && media.Controls.SupportsPlayPause;
             CanNext = media is not null && media.Controls.SupportsNext;
             CanPrevious = media is not null && media.Controls.SupportsPrevious;
@@ -741,6 +869,7 @@ public partial class NotchViewModel : ObservableObject, IDisposable
         {
             _timeline = timeline;
             UpdatePlaybackTexts();
+            UpdateMediaTotalText();
         });
     }
 
@@ -770,6 +899,65 @@ public partial class NotchViewModel : ObservableObject, IDisposable
             : 0;
     }
 
+    /// <summary>
+    /// Sets the artwork source badge: the real app icon (extracted from the
+    /// package or executable) with the tinted note as fallback.
+    /// </summary>
+    private void UpdateSourceBadge(MediaInfo? media)
+    {
+        var app = media?.AppName ?? string.Empty;
+        MediaSourceAppIcon = _appIcons.GetIcon(media?.SourceAppUserModelId ?? string.Empty);
+
+        if (string.IsNullOrEmpty(app) || !HasActiveMedia)
+        {
+            MediaSourceBadgeVisible = false;
+            return;
+        }
+
+        if (app.Contains("apple", StringComparison.OrdinalIgnoreCase))
+        {
+            MediaSourceBadgeBrush = "#FC3C44";
+            MediaSourceBadgeToolTip = "Playing from Apple Music";
+            MediaSourceBadgeVisible = true;
+        }
+        else if (app.Contains("spotify", StringComparison.OrdinalIgnoreCase))
+        {
+            MediaSourceBadgeBrush = "#1DB954";
+            MediaSourceBadgeToolTip = "Playing from Spotify";
+            MediaSourceBadgeVisible = true;
+        }
+        else if (MediaSourceAppIcon is not null)
+        {
+            MediaSourceBadgeBrush = "#1C1C22";
+            MediaSourceBadgeToolTip = $"Playing from {app}";
+            MediaSourceBadgeVisible = true;
+        }
+        else
+        {
+            MediaSourceBadgeVisible = false;
+        }
+    }
+
+    /// <summary>Total duration text for the progress row.</summary>
+    private void UpdateMediaTotalText()
+        => MediaTotalText = _timeline is { } timeline && timeline.Duration > TimeSpan.Zero
+            ? MediaPlaybackClock.FormatMediaTime(timeline.Duration)
+            : string.Empty;
+
+    // ------------------------------------------------------------ tab commands
+
+    [RelayCommand]
+    private void ShowNook() => SelectedTab = NotchTab.Nook;
+
+    [RelayCommand]
+    private void ShowAgents() => SelectedTab = NotchTab.Agents;
+
+    [RelayCommand]
+    private void ShowStats() => SelectedTab = NotchTab.Stats;
+
+    /// <summary>Lock icon for the nav row: closed when pinned, open when not.</summary>
+    public string LockGlyph => IsPinned ? "\uE72E" : "\uE785";
+
     private void OnEarbudStatusChanged(IReadOnlyDictionary<string, EarbudStatus> devices)
     {
         _dispatcher.BeginInvoke(() =>
@@ -794,6 +982,7 @@ public partial class NotchViewModel : ObservableObject, IDisposable
     private void UpdateClock(DateTime now)
     {
         TimeText = NotchClock.FormatTime(now);
+        ShortDateText = NotchClock.FormatShortDate(now);
 
         if (now.Date != _lastDate)
         {
@@ -821,5 +1010,8 @@ public partial class NotchViewModel : ObservableObject, IDisposable
         _bluetoothMonitor.StatusChanged -= OnEarbudStatusChanged;
         _systemBatteryMonitor.BatteryChanged -= OnSystemBatteryChanged;
         _statsMonitor.SnapshotAvailable -= OnStatsSnapshot;
+        _statsMonitor.MachineInfoAvailable -= OnMachineInfo;
+        _weatherMonitor.WeatherChanged -= OnWeatherChanged;
+        _weatherMonitor.FetchFailed -= OnWeatherFailed;
     }
 }

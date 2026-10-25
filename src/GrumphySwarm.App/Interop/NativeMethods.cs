@@ -15,6 +15,21 @@ internal static class NativeMethods
     /// <summary>Window never becomes the foreground window on click/hover.</summary>
     internal const int WS_EX_NOACTIVATE = 0x0800_0000;
 
+    /// <summary>Makes the ENTIRE window click-through for other processes
+    /// (HTTRANSPARENT only works within our own thread's windows).</summary>
+    internal const int WS_EX_TRANSPARENT = 0x0000_0020;
+
+    internal const int WS_EX_LAYERED = 0x0008_0000;
+
+    internal const int WM_SYSCOMMAND = 0x0112;
+    internal const long SC_MINIMIZE = 0xF020;
+    internal const int SW_HIDE = 0;
+    internal const int SW_SHOWNOACTIVATE = 4;
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
     /// <summary>Hides the window from Alt+Tab and the taskbar.</summary>
     internal const int WS_EX_TOOLWINDOW = 0x0000_0080;
 
@@ -141,6 +156,55 @@ internal static class NativeMethods
 
     internal const int WM_MOUSEWHEEL = 0x020A;
     internal const int VK_CONTROL = 0x11;
+
+    // ---- low-level keyboard hook (modifier gestures, event-driven) ---------
+
+    internal const int WH_KEYBOARD_LL = 13;
+    internal const int WM_KEYDOWN = 0x0100;
+    internal const int WM_KEYUP = 0x0101;
+    internal const int WM_SYSKEYDOWN = 0x0104;
+    internal const int WM_SYSKEYUP = 0x0105;
+
+    internal const int VK_LSHIFT = 0xA0;
+    internal const int VK_RSHIFT = 0xA1;
+    internal const int VK_LCONTROL = 0xA2;
+    internal const int VK_RCONTROL = 0xA3;
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct KBDLLHOOKSTRUCT
+    {
+        public uint vkCode;
+        public uint scanCode;
+        public uint flags;
+        public uint time;
+        public IntPtr dwExtraInfo;
+    }
+
+    internal delegate IntPtr LowLevelKeyboardProc(int code, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    internal static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
+
+    // ---- DWM cloak state (Phase 4 root cause: fullscreen transitions can
+    //      cloak topmost layered windows and Windows never uncloaks them) ----
+
+    internal const int DWMWA_CLOAKED = 14;
+
+    [DllImport("dwmapi.dll")]
+    internal static extern int DwmGetWindowAttribute(IntPtr hwnd, int attribute, out int value, int size);
+
+    /// <summary>True when DWM is currently cloaking (hiding) this window.</summary>
+    internal static bool IsWindowCloaked(IntPtr hwnd)
+    {
+        try
+        {
+            return DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, out var cloaked, sizeof(int)) == 0 && cloaked != 0;
+        }
+        catch (DllNotFoundException)
+        {
+            return false; // pre-Vista — impossible here, but never crash on it
+        }
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     internal struct MSLLHOOKSTRUCT

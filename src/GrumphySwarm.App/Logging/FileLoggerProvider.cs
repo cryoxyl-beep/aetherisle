@@ -16,7 +16,7 @@ public sealed class FileLoggerProvider : ILoggerProvider
     private readonly Channel<string> _queue = Channel.CreateUnbounded<string>(
         new UnboundedChannelOptions { SingleReader = true });
 
-    private readonly StreamWriter _writer;
+    private readonly StreamWriter? _writer;
     private readonly Task _writeTask;
     private bool _disposed;
 
@@ -31,17 +31,35 @@ public sealed class FileLoggerProvider : ILoggerProvider
         Directory.CreateDirectory(_directory);
         CleanupOldLogs(retentionDays: 7);
 
-        var filePath = Path.Combine(_directory, $"grumphy-{DateTime.Now:yyyyMMdd}.log");
+        _writer = TryOpenWriter($"grumphy-{DateTime.Now:yyyyMMdd}.log")
+            ?? TryOpenWriter($"grumphy-{DateTime.Now:yyyyMMdd}-{Environment.ProcessId}.log");
 
-        // Open with shared read/write access so a stale instance holding the
-        // file can never crash this one's startup.
-        var stream = new FileStream(
-            filePath,
-            FileMode.Append,
-            FileAccess.Write,
-            FileShare.ReadWrite);
-        _writer = new StreamWriter(stream) { AutoFlush = true };
+        // Logging must never crash startup: if every candidate file is locked
+        // (a zombie instance holding an exclusive handle), this provider
+        // degrades to a no-op and the app still runs.
         _writeTask = Task.Run(WriteLoopAsync);
+    }
+
+    private StreamWriter? TryOpenWriter(string fileName)
+    {
+        try
+        {
+            // Shared read/write so diagnostics can follow the log while we run.
+            var stream = new FileStream(
+                Path.Combine(_directory, fileName),
+                FileMode.Append,
+                FileAccess.Write,
+                FileShare.ReadWrite);
+            return new StreamWriter(stream) { AutoFlush = true };
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     public ILogger CreateLogger(string categoryName) => new FileLogger(categoryName, this, _minimumLevel);
@@ -57,6 +75,11 @@ public sealed class FileLoggerProvider : ILoggerProvider
     {
         await foreach (var line in _queue.Reader.ReadAllAsync().ConfigureAwait(false))
         {
+            if (_writer is null)
+            {
+                continue; // logging disabled — drain the queue
+            }
+
             try
             {
                 await _writer.WriteLineAsync(line).ConfigureAwait(false);
@@ -102,7 +125,7 @@ public sealed class FileLoggerProvider : ILoggerProvider
             // Shutdown-time flush failures are not actionable.
         }
 
-        _writer.Dispose();
+        _writer?.Dispose();
     }
 
     private sealed class FileLogger(string category, FileLoggerProvider owner, LogLevel minimumLevel) : ILogger

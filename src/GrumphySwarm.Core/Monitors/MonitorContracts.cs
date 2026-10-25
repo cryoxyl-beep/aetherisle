@@ -81,13 +81,15 @@ public sealed record MediaTransportControls(bool SupportsPlayPause, bool Support
 /// <param name="Status">Playback status.</param>
 /// <param name="Controls">Supported transport controls.</param>
 /// <param name="Timestamp">When the snapshot was taken.</param>
+/// <param name="SourceAppUserModelId">Raw SMTC source id (used for icon lookup); may be empty.</param>
 public sealed record MediaInfo(
     string Title,
     string Artist,
     string AppName,
     MediaPlaybackStatus Status,
     MediaTransportControls Controls,
-    DateTimeOffset Timestamp);
+    DateTimeOffset Timestamp,
+    string SourceAppUserModelId = "");
 
 /// <summary>Playback position snapshot from the system media timeline.</summary>
 /// <param name="Position">Elapsed playback position as reported by the session.</param>

@@ -23,12 +23,12 @@ public class NotchLayoutTests
     {
         var placement = NotchLayout.ComputePlacement(
             monitorX: 0, monitorY: 0, monitorWidth: 1920, monitorHeight: 1080,
-            windowWidthDip: 780, windowHeightDip: 248,
+            windowWidthDip: 800, windowHeightDip: 260,
             dpiScaleX: 1.5, dpiScaleY: 1.5);
 
-        Assert.Equal(1170, placement.Width);  // 780 * 1.5
-        Assert.Equal(372, placement.Height);  // 248 * 1.5
-        Assert.Equal((1920 - 1170) / 2, placement.X);
+        Assert.Equal(1200, placement.Width);  // 800 * 1.5
+        Assert.Equal(390, placement.Height);  // 260 * 1.5
+        Assert.Equal((1920 - 1200) / 2, placement.X);
         Assert.Equal(0, placement.Y);
     }
 
@@ -38,10 +38,10 @@ public class NotchLayoutTests
         // Secondary monitor physically left of the primary: origin at (-1920, 0).
         var placement = NotchLayout.ComputePlacement(
             monitorX: -1920, monitorY: 0, monitorWidth: 1920, monitorHeight: 1080,
-            windowWidthDip: 780, windowHeightDip: 248,
+            windowWidthDip: 800, windowHeightDip: 260,
             dpiScaleX: 1.0, dpiScaleY: 1.0);
 
-        Assert.Equal(-1920 + (1920 - 780) / 2, placement.X);
+        Assert.Equal(-1920 + (1920 - 800) / 2, placement.X);
         Assert.Equal(0, placement.Y);
     }
 

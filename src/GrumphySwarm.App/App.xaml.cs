@@ -82,6 +82,7 @@ public partial class App : Application
         services.AddSingleton<Core.Monitors.ISystemBatteryMonitor, Services.Power.SystemBatteryMonitor>();
         services.AddSingleton<Services.Audio.AudioSpectrumMonitor>();
         services.AddSingleton<Services.Telemetry.SystemStatsMonitor>();
+        services.AddSingleton<Services.Weather.WeatherMonitor>();
         services.AddSingleton<ViewModels.AgentsViewModel>();
         services.AddSingleton<ViewModels.NotchViewModel>();
         services.AddSingleton<TrayIconService>();
@@ -128,6 +129,7 @@ public partial class App : Application
             bluetoothMonitor.Start();
             spectrumMonitor.Start();
             _services.GetRequiredService<Services.Telemetry.SystemStatsMonitor>().Start();
+            _services.GetRequiredService<Services.Weather.WeatherMonitor>().Start();
 
             // System battery: seed the pill display from the first report.
             var systemBatteryMonitor = _services.GetRequiredService<Core.Monitors.ISystemBatteryMonitor>();

@@ -12,23 +12,23 @@ public static class NotchDimensions
     /// <summary>Corner radius of the collapsed pill (capsule).</summary>
     public const double PillRadius = 20;
 
-    /// <summary>Width of the Nook/Agents expanded panel.</summary>
-    public const double PanelWidth = 700;
+    /// <summary>Width of the expanded panel (Nook / Agents / Stats).</summary>
+    public const double PanelWidth = 760;
 
-    /// <summary>Height of the Nook/Agents expanded panel.</summary>
-    public const double PanelHeight = 176;
+    /// <summary>Height of the expanded panel (tallest tab content).</summary>
+    public const double PanelHeight = 230;
 
     /// <summary>Corner radius of the expanded panel.</summary>
-    public const double PanelRadius = 28;
+    public const double PanelRadius = 36;
 
     /// <summary>Width of the media player expanded view (reference layout).</summary>
-    public const double MediaWidth = 560;
+    public const double MediaWidth = 620;
 
     /// <summary>Height of the media player expanded view.</summary>
-    public const double MediaHeight = 190;
+    public const double MediaHeight = 200;
 
     /// <summary>Corner radius of the media player view.</summary>
-    public const double MediaRadius = 30;
+    public const double MediaRadius = 36;
 
     /// <summary>Width of the earbud battery pill.</summary>
     public const double BatteryWidth = 340;
@@ -40,10 +40,10 @@ public static class NotchDimensions
     public const double BatteryRadius = 42;
 
     /// <summary>Host window width: widest island plus shadow slack.</summary>
-    public const double WindowWidth = 780;
+    public const double WindowWidth = 800;
 
     /// <summary>Host window height: tallest island plus shadow slack.</summary>
-    public const double WindowHeight = 252;
+    public const double WindowHeight = 260;
 }
 
 /// <summary>A window placement in physical screen pixels.</summary>

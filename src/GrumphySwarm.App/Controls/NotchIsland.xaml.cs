@@ -305,8 +305,10 @@ public partial class NotchIsland : UserControl
             ViewModel?.ToggleBattery();
             e.Handled = true;
         }
-        else if (e.ClickCount == 1)
+        else if (e.ClickCount == 1 && State == NotchState.Collapsed)
         {
+            // Bare single clicks only act on the collapsed pill; clicking empty
+            // space inside an expanded panel (e.g. Stats) must do nothing.
             ViewModel?.HandleIslandClick();
         }
     }

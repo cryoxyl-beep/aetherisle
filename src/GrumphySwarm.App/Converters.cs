@@ -63,3 +63,49 @@ public sealed class FractionRemainderConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>Live percent (double 0..100 or 0..1 fraction) → rounded int? for ring gauges.</summary>
+public sealed class RoundedPercentConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not double number)
+        {
+            return null!;
+        }
+
+        // Values below 1 are treated as fractions (0..1 → 0..100).
+        if (number is >= 0 and <= 1)
+        {
+            number *= 100;
+        }
+
+        return (int)Math.Clamp(Math.Round(number), 0, 100);
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>App/process name → first letter, uppercased ("firefox" → "F").</summary>
+public sealed class AppInitialConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var name = value as string;
+        return string.IsNullOrEmpty(name) ? "?" : char.ToUpper(name[0], culture).ToString();
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>Non-empty string → Visible; null/empty → Collapsed.</summary>
+public sealed class StringToVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => string.IsNullOrEmpty(value as string) ? Visibility.Collapsed : Visibility.Visible;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}

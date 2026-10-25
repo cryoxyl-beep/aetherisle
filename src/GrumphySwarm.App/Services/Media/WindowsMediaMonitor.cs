@@ -242,7 +242,8 @@ public sealed class WindowsMediaMonitor : IMediaMonitor
                     SupportsPlayPause: controls.IsPlayEnabled || controls.IsPauseEnabled,
                     SupportsNext: controls.IsNextEnabled,
                     SupportsPrevious: controls.IsPreviousEnabled),
-                DateTimeOffset.Now);
+                DateTimeOffset.Now,
+                session.SourceAppUserModelId);
 
             Publish(info);
             PublishTimeline(session);

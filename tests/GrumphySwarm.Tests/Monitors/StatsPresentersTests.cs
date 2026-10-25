@@ -44,4 +44,42 @@ public class StatsPresentersTests
         Assert.Equal(0.5, StatsPresenters.MemoryFraction(16, 32));
         Assert.Equal(0.0, StatsPresenters.MemoryFraction(16, 0));
     }
+
+    [Fact]
+    public void Disk_usage_formats_or_dashes()
+    {
+        Assert.Equal("412 / 931 GB", StatsPresenters.FormatDisk(411.6, 931.2));
+        Assert.Equal("—", StatsPresenters.FormatDisk(null, 931.2));
+        Assert.Equal("—", StatsPresenters.FormatDisk(100, null));
+    }
+
+    [Fact]
+    public void Temperatures_render_with_degree_sign()
+    {
+        Assert.Equal("29°", StatsPresenters.FormatTemperature(28.7));
+        Assert.Equal("0°", StatsPresenters.FormatTemperature(0.2));
+        Assert.Equal("—", StatsPresenters.FormatTemperature(null));
+    }
+
+    [Fact]
+    public void Cpu_names_shorten_to_marketing_name()
+    {
+        Assert.Equal(
+            "Core i7-9750H",
+            StatsPresenters.ShortenCpuName("Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"));
+        Assert.Equal(
+            "Ryzen 7 5800H",
+            StatsPresenters.ShortenCpuName("AMD Ryzen 7 5800H with Radeon Graphics"));
+        Assert.Equal(
+            "Qualcomm Snapdragon X",
+            StatsPresenters.ShortenCpuName("Qualcomm Snapdragon X Elite X1E-84-100"));
+    }
+
+    [Fact]
+    public void App_usage_fraction_clamps_for_bars()
+    {
+        Assert.Equal(0.42, new AppUsage("firefox", 42).Fraction);
+        Assert.Equal(1.0, new AppUsage("chrome", 250).Fraction);
+        Assert.Equal(0.0, new AppUsage("idle", -3).Fraction);
+    }
 }

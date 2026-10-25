@@ -27,6 +27,81 @@
     <SolidColorBrush x:Key="AccentBlueBrush" Color="#0A84FF" />
     <SolidColorBrush x:Key="AccentGreenBrush" Color="#30D158" />
 
+    <!-- Nook nav row (reference): outlined circular icon buttons -->
+    <SolidColorBrush x:Key="NavButtonBorderBrush" Color="#3A3A42" />
+    <SolidColorBrush x:Key="NavButtonFillBrush" Color="#0D0D10" />
+    <Style x:Key="NavButtonStyle" TargetType="Button">
+        <Setter Property="Width" Value="34" />
+        <Setter Property="Height" Value="34" />
+        <Setter Property="Background" Value="{StaticResource NavButtonFillBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource IconFontFamily}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{StaticResource NavButtonBorderBrush}"
+                            BorderThickness="1.4"
+                            CornerRadius="17">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#FF1C1C22" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#FF26262E" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Battery pill button (nav right): live system battery, opens Stats -->
+    <Style x:Key="BatteryPillStyle" TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource NavButtonFillBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{StaticResource NavButtonBorderBrush}"
+                            BorderThickness="1.4"
+                            CornerRadius="14"
+                            Padding="9,4">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#FF1C1C22" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Stats ring palette + tab accent (reference: amber active tab) -->
+    <SolidColorBrush x:Key="AccentAmberBrush" Color="#F0B94A" />
+    <SolidColorBrush x:Key="TabAmberBrush" Color="#E8B44A" />
+    <SolidColorBrush x:Key="AccentPurpleBrush" Color="#B57BF0" />
+    <SolidColorBrush x:Key="AccentCyanBrush" Color="#4FC3F7" />
+    <SolidColorBrush x:Key="AccentOrangeBrush" Color="#FF9F0A" />
+
+    <!-- Weather cloud silhouette (verified vector shape) -->
+    <StreamGeometry x:Key="WeatherCloudGeometry">M14.5,21.5 a5.5,5.5 0 0 1 -0.4,-11 a7.5,7.5 0 0 1 14.2,-1.6 a5,5 0 0 1 1.2,12.6 z</StreamGeometry>
+
     <!-- Subtle inner top highlight, like the macOS notch light catch -->
     <LinearGradientBrush x:Key="TopHighlightBrush" StartPoint="0,0" EndPoint="1,0">
         <GradientStop Color="#00FFFFFF" Offset="0" />
@@ -44,6 +119,9 @@
     <app:TaskTypeConverter x:Key="TaskTypeConverter" />
     <app:FractionToStarConverter x:Key="FractionToStarConverter" />
     <app:FractionRemainderConverter x:Key="FractionRemainderConverter" />
+    <app:RoundedPercentConverter x:Key="RoundedPercentConverter" />
+    <app:AppInitialConverter x:Key="AppInitialConverter" />
+    <app:StringToVisibilityConverter x:Key="StringToVisibilityConverter" />
 
     <!-- ====================================================== text styles -->
 
@@ -83,45 +161,6 @@
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
     </Style>
 
-    <!-- Calendar module -->
-    <Style x:Key="MonthStyle" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource PrimaryFontFamily}" />
-        <Setter Property="FontSize" Value="22" />
-        <Setter Property="FontWeight" Value="Bold" />
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-    </Style>
-
-    <Style x:Key="DayHeaderStyle" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
-        <Setter Property="FontSize" Value="8.5" />
-        <Setter Property="Foreground" Value="{StaticResource TextTertiaryBrush}" />
-        <Setter Property="HorizontalAlignment" Value="Center" />
-    </Style>
-
-    <Style x:Key="DayNumberStyle" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
-        <Setter Property="FontSize" Value="10.5" />
-        <Setter Property="Foreground" Value="#CFCFD4" />
-        <Setter Property="HorizontalAlignment" Value="Center" />
-        <Setter Property="VerticalAlignment" Value="Center" />
-    </Style>
-
-    <!-- Reserved / avatar module -->
-    <Style x:Key="ReservedTitleStyle" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
-        <Setter Property="FontSize" Value="11" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Foreground" Value="#CFCFD4" />
-        <Setter Property="HorizontalAlignment" Value="Center" />
-    </Style>
-
-    <Style x:Key="ReservedCaptionStyle" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
-        <Setter Property="FontSize" Value="9.5" />
-        <Setter Property="Foreground" Value="{StaticResource TextTertiaryBrush}" />
-        <Setter Property="HorizontalAlignment" Value="Center" />
-    </Style>
-
     <!-- Agents -->
     <Style x:Key="AgentNameStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
@@ -143,6 +182,65 @@
     <Style x:Key="ReservedCardStyle" TargetType="Border" BasedOn="{StaticResource ModuleCardStyle}">
         <Setter Property="Background" Value="{StaticResource ReservedBackgroundBrush}" />
     </Style>
+
+    <!-- ======================================================== stats view -->
+    <Style x:Key="StatCardStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource ModuleBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource ModuleBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="16" />
+    </Style>
+
+    <Style x:Key="StatNameStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    </Style>
+
+    <Style x:Key="StatSubStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontSize" Value="9" />
+        <Setter Property="Foreground" Value="{StaticResource TextTertiaryBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style x:Key="StatBadgeStyle" TargetType="Border">
+        <Setter Property="Background" Value="#FF1E1E23" />
+        <Setter Property="CornerRadius" Value="7" />
+        <Setter Property="Padding" Value="7,3" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+
+    <Style x:Key="StatBadgeTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontSize" Value="8.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="#FFCFCFD4" />
+    </Style>
+
+    <Style x:Key="StatMiniLabelStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontSize" Value="8.5" />
+        <Setter Property="Foreground" Value="{StaticResource TextTertiaryBrush}" />
+    </Style>
+
+    <Style x:Key="StatMiniValueStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontSize" Value="10.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
+    </Style>
+
+    <Style x:Key="WeatherTempStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource PrimaryFontFamily}" />
+        <Setter Property="FontSize" Value="27" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    </Style>
+
+    <!-- Speed test button (amber pill) — removed with the speed-test panel -->
 
     <Style x:Key="AgentRowStyle" TargetType="Border">
         <Setter Property="Background" Value="#101014" />
@@ -175,12 +273,13 @@
                                    Foreground="{TemplateBinding Foreground}" />
                     </Border>
                     <ControlTemplate.Triggers>
-                        <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource ChipBackgroundBrush}" />
-                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-                        </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{StaticResource ChipHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <!-- Active tab = amber pill with dark text (reference style) -->
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource TabAmberBrush}" />
+                            <Setter Property="Foreground" Value="#FF171717" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
