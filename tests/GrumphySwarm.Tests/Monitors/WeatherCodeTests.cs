@@ -27,4 +27,22 @@ public class WeatherCodeTests
         Assert.Equal("Cloudy", label);
         Assert.False(isClear);
     }
+
+    [Theory]
+    [InlineData(0, true, WeatherIconKind.Clear)]
+    [InlineData(0, false, WeatherIconKind.ClearNight)]
+    [InlineData(1, false, WeatherIconKind.ClearNight)]
+    [InlineData(2, true, WeatherIconKind.PartlyCloudy)]
+    [InlineData(3, true, WeatherIconKind.Cloudy)]
+    [InlineData(45, true, WeatherIconKind.Fog)]
+    [InlineData(53, true, WeatherIconKind.Drizzle)]
+    [InlineData(63, true, WeatherIconKind.Rain)]
+    [InlineData(81, false, WeatherIconKind.Rain)]
+    [InlineData(73, true, WeatherIconKind.Snow)]
+    [InlineData(95, true, WeatherIconKind.Thunder)]
+    [InlineData(42, true, WeatherIconKind.Cloudy)]
+    public void Icon_kinds_follow_the_weather_code(int code, bool isDay, WeatherIconKind expected)
+    {
+        Assert.Equal(expected, WeatherCodes.IconKind(code, isDay));
+    }
 }

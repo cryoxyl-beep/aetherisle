@@ -325,23 +325,19 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="336" />
-                        <ColumnDefinition Width="18" />
+                        <ColumnDefinition Width="290" />
+                        <ColumnDefinition Width="12" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="18" />
+                        <ColumnDefinition Width="12" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="18" />
+                        <ColumnDefinition Width="12" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="18" />
-                        <ColumnDefinition Width="188" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="160" />
                     </Grid.ColumnDefinitions>
 
                     <!-- ================= left column: now playing ================= -->
                     <Grid Grid.Column="0" x:Name="MediaCard" Cursor="Hand">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
@@ -411,24 +407,24 @@
                                        Margin="0,3,0,0"
                                        TextTrimming="CharacterEllipsis" />
 
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,12,0,0">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">
                                 <Button Style="{StaticResource BareTransportStyle}"
-                                        Width="30"
-                                        Height="24"
+                                        Width="42"
+                                        Height="30"
                                         Command="{Binding PreviousTrackCommand}"
                                         ToolTip="Previous">
                                     <Image Source="/Resources/icon-previous.png"
-                                           Width="16"
-                                           Height="11"
+                                           Width="24"
+                                           Height="16"
                                            RenderOptions.BitmapScalingMode="HighQuality" />
                                     <Button.Visibility>
                                         <Binding Path="CanPrevious" Converter="{StaticResource BooleanToVisibilityConverter}" FallbackValue="Collapsed" />
                                     </Button.Visibility>
                                 </Button>
                                 <Button Style="{StaticResource BareTransportStyle}"
-                                        Width="40"
-                                        Height="26"
-                                        Margin="16,0"
+                                        Width="54"
+                                        Height="36"
+                                        Margin="14,0"
                                         Command="{Binding PlayPauseCommand}"
                                         ToolTip="Play / pause">
                                     <Button.Visibility>
@@ -436,8 +432,8 @@
                                     </Button.Visibility>
                                     <Grid>
                                         <Image Source="/Resources/icon-play.png"
-                                               Width="19"
-                                               Height="21"
+                                               Width="26"
+                                               Height="29"
                                                RenderOptions.BitmapScalingMode="HighQuality">
                                             <Image.Style>
                                                 <Style TargetType="Image">
@@ -451,8 +447,8 @@
                                             </Image.Style>
                                         </Image>
                                         <Image Source="/Resources/icon-pause.png"
-                                               Width="19"
-                                               Height="21"
+                                               Width="26"
+                                               Height="29"
                                                RenderOptions.BitmapScalingMode="HighQuality">
                                             <Image.Style>
                                                 <Style TargetType="Image">
@@ -468,13 +464,13 @@
                                     </Grid>
                                 </Button>
                                 <Button Style="{StaticResource BareTransportStyle}"
-                                        Width="30"
-                                        Height="24"
+                                        Width="42"
+                                        Height="30"
                                         Command="{Binding NextTrackCommand}"
                                         ToolTip="Next">
                                     <Image Source="/Resources/icon-next.png"
-                                           Width="16"
-                                           Height="11"
+                                           Width="24"
+                                           Height="16"
                                            RenderOptions.BitmapScalingMode="HighQuality" />
                                     <Button.Visibility>
                                         <Binding Path="CanNext" Converter="{StaticResource BooleanToVisibilityConverter}" FallbackValue="Collapsed" />
@@ -482,92 +478,61 @@
                                 </Button>
                             </StackPanel>
                         </StackPanel>
-
-                        <!-- progress bar + times across the full column -->
-                        <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,8,0,0">
-                            <Grid Height="3.5">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="{Binding PlaybackFraction, Converter={StaticResource FractionToStarConverter}, Mode=OneWay}" />
-                                    <ColumnDefinition Width="{Binding PlaybackFraction, Converter={StaticResource FractionRemainderConverter}, Mode=OneWay}" />
-                                </Grid.ColumnDefinitions>
-                                <Border Background="#F5F5F7" CornerRadius="2,0,0,2" />
-                                <Border Grid.Column="1" Background="#3F3F42" CornerRadius="0,2,2,0" />
-                            </Grid>
-                            <Grid Margin="0,4,0,0">
-                                <TextBlock Text="{Binding ElapsedText, FallbackValue=''}"
-                                           Style="{StaticResource MicroCaptionStyle}"
-                                           HorizontalAlignment="Left"
-                                           Typography.NumeralAlignment="Tabular" />
-                                <TextBlock Text="{Binding MediaTotalText, FallbackValue=''}"
-                                           Style="{StaticResource MicroCaptionStyle}"
-                                           HorizontalAlignment="Right"
-                                           Typography.NumeralAlignment="Tabular" />
-                            </Grid>
-                        </StackPanel>
                     </Grid>
 
                     <Rectangle Grid.Column="2" Width="1" Fill="{StaticResource HairlineBrush}" Margin="0,4" />
 
-                    <!-- ================= center column: events ================= -->
-                    <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                    <!-- ================= center column: events (centered) ================= -->
+                    <StackPanel Grid.Column="4" VerticalAlignment="Center" HorizontalAlignment="Center">
                         <TextBlock Text="{Binding ShortDateText, FallbackValue=''}"
                                    FontFamily="{StaticResource PrimaryFontFamily}"
-                                   FontSize="21"
+                                   FontSize="19"
                                    FontWeight="Bold"
-                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   HorizontalAlignment="Center" />
                         <TextBlock Text="No events coming up"
                                    Style="{StaticResource CaptionStyle}"
                                    FontSize="11.5"
+                                   HorizontalAlignment="Center"
                                    Margin="0,4,0,0" />
                     </StackPanel>
 
                     <Rectangle Grid.Column="6" Width="1" Fill="{StaticResource HairlineBrush}" Margin="0,4" />
 
-                    <!-- ================= right column: weather ================= -->
-                    <Grid Grid.Column="8" VerticalAlignment="Center">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+                    <!-- ================= right column: weather (centered) ================= -->
+                    <StackPanel Grid.Column="8"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <controls:WeatherIconControl Kind="{Binding WeatherIconKind, FallbackValue=Unknown}"
+                                                         Width="34"
+                                                         Height="34"
+                                                         VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding WeatherTempText, FallbackValue='—'}"
+                                       Style="{StaticResource WeatherTempStyle}"
+                                       VerticalAlignment="Center"
+                                       Margin="8,2,0,0" />
+                        </StackPanel>
 
-                        <Grid Grid.Row="0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Path Grid.Column="0"
-                                  Data="{StaticResource WeatherCloudGeometry}"
-                                  Fill="{StaticResource TextPrimaryBrush}"
-                                  Width="34"
-                                  Height="24"
-                                  Stretch="Uniform"
-                                  VerticalAlignment="Top" />
-                            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
-                                <TextBlock Text="{Binding WeatherTempText, FallbackValue='—'}"
-                                           Style="{StaticResource WeatherTempStyle}"
-                                           HorizontalAlignment="Right" />
-                                <TextBlock Text="{Binding WeatherConditionText, FallbackValue=''}"
-                                           Style="{StaticResource CaptionStyle}"
-                                           FontSize="11.5"
-                                           HorizontalAlignment="Right"
-                                           Margin="0,2,2,0" />
-                            </StackPanel>
-                        </Grid>
+                        <TextBlock Text="{Binding WeatherConditionText, FallbackValue=''}"
+                                   Style="{StaticResource CaptionStyle}"
+                                   FontSize="11.5"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,4,0,0" />
 
-                        <TextBlock Grid.Row="1"
-                                   Text="{Binding WeatherCityText, FallbackValue=''}"
+                        <TextBlock Text="{Binding WeatherCityText, FallbackValue=''}"
                                    Style="{StaticResource CaptionStrongStyle}"
                                    FontSize="13"
-                                   Margin="0,8,0,0" />
+                                   HorizontalAlignment="Center"
+                                   Margin="0,3,0,0" />
 
-                        <Grid Grid.Row="2" Margin="0,8,0,0">
+                        <Grid Width="140" Margin="0,9,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
-                            <StackPanel Grid.Column="0">
+                            <StackPanel Grid.Column="0" HorizontalAlignment="Center">
                                 <StackPanel Orientation="Horizontal">
                                     <Border Width="14" Height="14" CornerRadius="7" Background="{StaticResource AccentOrangeBrush}">
                                         <TextBlock Text="&#xE74A;"
@@ -587,11 +552,12 @@
                                            FontSize="15"
                                            FontWeight="Bold"
                                            Foreground="{StaticResource TextPrimaryBrush}"
-                                           Margin="1,3,0,0"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,3,0,0"
                                            Typography.NumeralAlignment="Tabular" />
                             </StackPanel>
 
-                            <StackPanel Grid.Column="1">
+                            <StackPanel Grid.Column="1" HorizontalAlignment="Center">
                                 <StackPanel Orientation="Horizontal">
                                     <Border Width="14" Height="14" CornerRadius="7" Background="{StaticResource AccentCyanBrush}">
                                         <TextBlock Text="&#xE74B;"
@@ -611,11 +577,12 @@
                                            FontSize="15"
                                            FontWeight="Bold"
                                            Foreground="{StaticResource TextPrimaryBrush}"
-                                           Margin="1,3,0,0"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,3,0,0"
                                            Typography.NumeralAlignment="Tabular" />
                             </StackPanel>
                         </Grid>
-                    </Grid>
+                    </StackPanel>
                 </Grid>
 
                 <!-- ======================= Agents tab ======================= -->
@@ -732,10 +699,10 @@
                             </Grid.ColumnDefinitions>
 
                             <!-- CPU gauge: ring centered, % inside, name beneath -->
-                            <Border Grid.Column="0" Style="{StaticResource StatCardStyle}" Padding="8,8,8,7">
+                            <Border Grid.Column="0" Style="{StaticResource StatCardStyle}" Padding="8,7,8,6">
                                 <StackPanel HorizontalAlignment="Center">
-                                    <controls:BatteryRingControl Width="44"
-                                                                 Height="44"
+                                    <controls:BatteryRingControl Width="48"
+                                                                 Height="48"
                                                                  HorizontalAlignment="Center"
                                                                  Percent="{Binding CpuFraction, Converter={StaticResource RoundedPercentConverter}}"
                                                                  FillBrush="{StaticResource AccentAmberBrush}" />
@@ -753,10 +720,10 @@
                             </Border>
 
                             <!-- GPU gauge -->
-                            <Border Grid.Column="2" Style="{StaticResource StatCardStyle}" Padding="8,8,8,7">
+                            <Border Grid.Column="2" Style="{StaticResource StatCardStyle}" Padding="8,7,8,6">
                                 <StackPanel HorizontalAlignment="Center">
-                                    <controls:BatteryRingControl Width="44"
-                                                                 Height="44"
+                                    <controls:BatteryRingControl Width="48"
+                                                                 Height="48"
                                                                  HorizontalAlignment="Center"
                                                                  Percent="{Binding GpuFraction, Converter={StaticResource RoundedPercentConverter}}"
                                                                  FillBrush="{StaticResource AccentPurpleBrush}" />
@@ -774,10 +741,10 @@
                             </Border>
 
                             <!-- RAM gauge -->
-                            <Border Grid.Column="4" Style="{StaticResource StatCardStyle}" Padding="8,8,8,7">
+                            <Border Grid.Column="4" Style="{StaticResource StatCardStyle}" Padding="8,7,8,6">
                                 <StackPanel HorizontalAlignment="Center">
-                                    <controls:BatteryRingControl Width="44"
-                                                                 Height="44"
+                                    <controls:BatteryRingControl Width="48"
+                                                                 Height="48"
                                                                  HorizontalAlignment="Center"
                                                                  Percent="{Binding RamFraction, Converter={StaticResource RoundedPercentConverter}}"
                                                                  FillBrush="{StaticResource AccentGreenBrush}" />
@@ -805,14 +772,14 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
-                            <Border Grid.Column="0" Style="{StaticResource StatCardStyle}" CornerRadius="12" Padding="10,5">
+                            <Border Grid.Column="0" Style="{StaticResource StatCardStyle}" CornerRadius="12" Padding="10,7">
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="DISK C:" Style="{StaticResource StatMiniLabelStyle}" />
-                                    <TextBlock Text="{Binding DiskUsageText, FallbackValue='—'}" Style="{StaticResource StatMiniValueStyle}" FontSize="11" Margin="0,1,0,0" />
+                                    <TextBlock Text="{Binding DiskUsageText, FallbackValue='—'}" Style="{StaticResource StatMiniValueStyle}" FontSize="12" Margin="0,1,0,0" />
                                 </StackPanel>
                             </Border>
 
-                            <Border Grid.Column="2" Style="{StaticResource StatCardStyle}" CornerRadius="12" Padding="10,5">
+                            <Border Grid.Column="2" Style="{StaticResource StatCardStyle}" CornerRadius="12" Padding="10,7">
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="NETWORK" Style="{StaticResource StatMiniLabelStyle}" />
                                     <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
@@ -824,17 +791,17 @@
                                 </StackPanel>
                             </Border>
 
-                            <Border Grid.Column="4" Style="{StaticResource StatCardStyle}" CornerRadius="12" Padding="10,5">
+                            <Border Grid.Column="4" Style="{StaticResource StatCardStyle}" CornerRadius="12" Padding="10,7">
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="UP FOR" Style="{StaticResource StatMiniLabelStyle}" />
-                                    <TextBlock Text="{Binding UptimeText, FallbackValue='—'}" Style="{StaticResource StatMiniValueStyle}" FontSize="11" Margin="0,1,0,0" />
+                                    <TextBlock Text="{Binding UptimeText, FallbackValue='—'}" Style="{StaticResource StatMiniValueStyle}" FontSize="12" Margin="0,1,0,0" />
                                 </StackPanel>
                             </Border>
                         </Grid>
                     </Grid>
 
                     <!-- right: top apps (full column height) -->
-                    <Border Grid.Column="2" Style="{StaticResource StatCardStyle}" Padding="11,8">
+                    <Border Grid.Column="2" Style="{StaticResource StatCardStyle}" Padding="12,10">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />

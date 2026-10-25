@@ -151,6 +151,25 @@ internal static class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool IsWindowVisible(IntPtr hWnd);
 
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool IsIconic(IntPtr hWnd);
+
+    // ---- ownership guard -----------------------------------------------------
+    // WPF helper windows can acquire OWNERSHIP of the island hwnd; owned
+    // windows are group-minimized with their owner, which made the island
+    // vanish whenever another app was minimized. GW_OWNER reads it;
+    // GWLP_HWNDPARENT (-8) with NULL clears it.
+
+    internal const uint GW_OWNER = 4;
+    internal const int GWLP_HWNDPARENT = -8;
+
+    [DllImport("user32.dll")]
+    internal static extern IntPtr GetWindow(IntPtr hWnd, uint command);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr", SetLastError = true)]
+    internal static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int index, IntPtr newLong);
+
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     internal static extern int GetWindowText(IntPtr hWnd, string text, int maxCount);
 

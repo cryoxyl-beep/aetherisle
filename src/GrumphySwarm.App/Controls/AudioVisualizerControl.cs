@@ -155,7 +155,11 @@ public sealed class AudioVisualizerControl : FrameworkElement
                 // Spread bars across the low 80% of the spectrum, where music lives.
                 var from = 0.02 + 0.78 * i / count;
                 var to = 0.02 + 0.78 * (i + 1) / count;
-                target = SampleBands(bands, from, to);
+
+                // Sensitivity curve: real music bands sit low in the analyzer's
+                // normalized range, so lift them — square-root-ish expansion plus
+                // gain makes the visualizer visibly dance at normal volumes.
+                target = Math.Clamp(Math.Pow(SampleBands(bands, from, to), 0.68) * 1.45, 0, 1);
             }
 
             // Fast attack, slow decay.

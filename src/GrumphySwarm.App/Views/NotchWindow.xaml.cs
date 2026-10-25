@@ -443,6 +443,35 @@ public partial class NotchWindow : Window
                 return;
             }
 
+            // OWNERSHIP guard (the "island minimizes with a random app" bug):
+            // WPF helper windows can take ownership of the island hwnd; owned
+            // windows are group-minimized/group-hidden with their owner, and
+            // in that state none of the visible/iconic checks below fire.
+            // Ownership is pointless for the island — strip it, always.
+            var owner = NativeMethods.GetWindow(_hwnd, NativeMethods.GW_OWNER);
+            if (owner != IntPtr.Zero)
+            {
+                NativeMethods.SetWindowLongPtr(_hwnd, NativeMethods.GWLP_HWNDPARENT, IntPtr.Zero);
+                _logger.LogWarning(
+                    "Island window was owned by hwnd {Owner} — ownership removed so no app minimize can drag it along.",
+                    owner);
+                NativeMethods.ShowWindow(_hwnd, NativeMethods.SW_SHOWNOACTIVATE);
+                RepositionToMonitor("owner removed");
+                return;
+            }
+
+            // MINIMIZED island: a minimized borderless window reports
+            // IsWindowVisible == TRUE (WS_VISIBLE stays set), so the visible
+            // check below misses it — and a no-activate topmost window can be
+            // minimized alongside another app's window by the shell.
+            if (NativeMethods.IsIconic(_hwnd))
+            {
+                NativeMethods.ShowWindow(_hwnd, NativeMethods.SW_SHOWNOACTIVATE);
+                RepositionToMonitor("recovered from minimized state");
+                _logger.LogWarning("Island window was minimized — restored.");
+                return;
+            }
+
             if (!NativeMethods.IsWindowVisible(_hwnd))
             {
                 NativeMethods.ShowWindow(_hwnd, NativeMethods.SW_SHOWNOACTIVATE);

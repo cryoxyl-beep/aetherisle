@@ -93,6 +93,19 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
 
     public event Action<IReadOnlyDictionary<string, EarbudStatus>>? StatusChanged;
 
+    /// <summary>
+    /// AEP selector restricted to the Bluetooth + Bluetooth LE protocols.
+    /// An UNFILTERED association-endpoint watcher enumerates endpoints over
+    /// every protocol — including Wi-Fi Direct, which makes Windows actively
+    /// probe nearby WFD devices: the "Microsoft Wi-Fi Direct Virtual Adapter"
+    /// lights up in Task Manager and the Wi-Fi driver graph spikes the whole
+    /// time the app runs. Battery endpoints only ever surface over Bluetooth,
+    /// so restricting the watcher loses nothing.
+    /// </summary>
+    private const string BluetoothAepSelector =
+        "System.Devices.Aep.ProtocolId:=\"{e0cbf06c-cdf8-4647-b615-6de15ecbe362}\""
+        + " OR System.Devices.Aep.ProtocolId:=\"{bb7bb05e-5972-42b5-94fc-76eaa7084d49}\"";
+
     public void Start()
     {
         lock (_gate)
@@ -102,24 +115,13 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
                 return;
             }
 
-            var selector = string.Empty; // ALL association endpoints — the
-            // battery for TWS buds may surface on the classic, LE, AVRCP or
-            // HFP endpoint; a protocol-filtered watcher misses some of them.
-
-            // Property-list fallback chain: some builds reject individual keys.
-            foreach (var properties in new[] { FullProperties, FullPropertiesRaw, ConnectedProperties, NameOnlyProperties })
+            // Try Bluetooth-only first, then (worst case) the unfiltered form —
+            // property-list fallback chain, some builds reject individual keys.
+            _watcher = CreateAepWatcherOrNull([BluetoothAepSelector, string.Empty]);
+            if (_watcher is null)
             {
-                try
-                {
-                    _watcher = DeviceInformation.CreateWatcher(selector, properties, DeviceInformationKind.AssociationEndpoint);
-                    _activeProperties = properties;
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "Bluetooth: watcher with {Count} properties rejected.", properties.Length);
-                    _watcher = null;
-                }
+                _logger.LogWarning("Bluetooth: device watcher unavailable — battery monitoring disabled.");
+                return;
             }
 
             if (_watcher is null)
@@ -128,53 +130,52 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
                 return;
             }
 
-            _watcher.Added += OnWatcherAdded;
-            _watcher.Updated += OnWatcherUpdated;
-            _watcher.Removed += OnWatcherRemoved;
-            _watcher.EnumerationCompleted += (_, _) => _logger.LogInformation("Bluetooth: device enumeration complete.");
-            _watcher.Start();
-
             // Windows Settings shows battery on the device CONTAINER page; the
             // value may be aggregated there even when the raw endpoint property
-            // reads empty. Watch containers too.
+            // reads empty. Bluetooth-only filter (multi-value property matches
+            // when ANY of its protocol ids is Bluetooth); if the filter is
+            // rejected on this build the watcher is skipped rather than run
+            // unfiltered — the PnP HFP path already delivers the values.
             try
             {
                 _containerWatcher = DeviceInformation.CreateWatcher(
-                    string.Empty,
+                    "System.Devices.AepContainer.ProtocolIds:=\"{e0cbf06c-cdf8-4647-b615-6de15ecbe362}\""
+                        + " OR System.Devices.AepContainer.ProtocolIds:=\"{bb7bb05e-5972-42b5-94fc-76eaa7084d49}\"",
                     _activeProperties,
                     DeviceInformationKind.AssociationEndpointContainer);
                 _containerWatcher.Added += OnWatcherAdded;
                 _containerWatcher.Updated += OnWatcherUpdated;
                 _containerWatcher.Removed += OnWatcherRemoved;
                 _containerWatcher.Start();
-                _logger.LogInformation("Bluetooth: container watcher active (Settings-style battery path).");
+                _logger.LogInformation("Bluetooth: container watcher active (Bluetooth-only, Settings-style battery path).");
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Bluetooth: container watcher unavailable.");
+                _logger.LogInformation("Bluetooth: container watcher skipped (Bluetooth-only selector rejected; PnP path covers it). {Message}", ex.Message);
                 _containerWatcher = null;
             }
 
             // GATT services surface as AssociationEndpointService objects, and a
             // battery service often carries System.Devices.AepBattery_Level
-            // there even when the device-level property reads empty. Service
-            // names are frequently blank, so allow-list matching falls back to
-            // the parent endpoint id embedded in the service id.
+            // there even when the device-level property reads empty. Bluetooth-
+            // only selector (same WFD-avoidance as the endpoint watcher); if the
+            // selector is rejected on this build the watcher is simply skipped —
+            // the PnP HFP path is what actually delivers battery values.
             try
             {
                 _serviceWatcher = DeviceInformation.CreateWatcher(
-                    string.Empty,
+                    BluetoothAepSelector,
                     _activeProperties,
                     DeviceInformationKind.AssociationEndpointService);
                 _serviceWatcher.Added += OnWatcherAdded;
                 _serviceWatcher.Updated += OnWatcherUpdated;
                 _serviceWatcher.Removed += OnWatcherRemoved;
                 _serviceWatcher.Start();
-                _logger.LogInformation("Bluetooth: service endpoint watcher active (GATT battery service path).");
+                _logger.LogInformation("Bluetooth: service endpoint watcher active (Bluetooth-only, GATT battery service path).");
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Bluetooth: service watcher unavailable.");
+                _logger.LogDebug(ex, "Bluetooth: service watcher unavailable (Bluetooth-only selector rejected).");
                 _serviceWatcher = null;
             }
 
@@ -200,9 +201,46 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
 
             IsSupported = true;
             _logger.LogInformation(
-                "Bluetooth: allow-listed accessory monitoring active (all AEPs, event-driven, {PropertyCount} properties watched).",
+                "Bluetooth: allow-listed accessory monitoring active (Bluetooth-only AEPs, event-driven, {PropertyCount} properties watched).",
                 _activeProperties.Length);
         }
+    }
+
+    /// <summary>
+    /// Creates and starts the association-endpoint watcher, walking the given
+    /// selectors against the property-list fallback chain. Returns null when
+    /// every combination is rejected by this Windows build.
+    /// </summary>
+    private DeviceWatcher? CreateAepWatcherOrNull(IEnumerable<string> selectors)
+    {
+        foreach (var selector in selectors)
+        {
+            foreach (var properties in new[] { FullProperties, FullPropertiesRaw, ConnectedProperties, NameOnlyProperties })
+            {
+                try
+                {
+                    var watcher = DeviceInformation.CreateWatcher(selector, properties, DeviceInformationKind.AssociationEndpoint);
+                    watcher.Added += OnWatcherAdded;
+                    watcher.Updated += OnWatcherUpdated;
+                    watcher.Removed += OnWatcherRemoved;
+                    watcher.EnumerationCompleted += (_, _) => _logger.LogInformation("Bluetooth: device enumeration complete.");
+                    watcher.Start();
+                    _activeProperties = properties;
+                    if (selector != string.Empty)
+                    {
+                        _logger.LogInformation("Bluetooth: endpoint watcher restricted to Bluetooth protocols (Wi-Fi Direct probing avoided).");
+                    }
+
+                    return watcher;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Bluetooth: watcher rejected (selector {Kind}, {Count} properties).", selector == string.Empty ? "all" : "filtered", properties.Length);
+                }
+            }
+        }
+
+        return null;
     }
 
     /// <summary>PnP devnode battery (HFP). Devnode names carry the model name,

@@ -397,7 +397,7 @@ public partial class NotchViewModel : ObservableObject, IDisposable
     private string weatherLowText = "—";
 
     [ObservableProperty]
-    private bool weatherIsClear;
+    private WeatherIconKind weatherIconKind = WeatherIconKind.Unknown;
 
     // Internet speed panel removed (user request) — Stats shows top apps
     // across the full right column instead.
@@ -406,14 +406,14 @@ public partial class NotchViewModel : ObservableObject, IDisposable
     {
         _dispatcher.BeginInvoke(() =>
         {
-            var (label, isClear) = WeatherCodes.Map(weather.WeatherCode);
+            var (label, _) = WeatherCodes.Map(weather.WeatherCode);
             HasWeather = true;
             WeatherTempText = StatsPresenters.FormatTemperature(weather.TempC);
             WeatherConditionText = label;
             WeatherCityText = weather.City;
             WeatherHighText = StatsPresenters.FormatTemperature(weather.HighC);
             WeatherLowText = StatsPresenters.FormatTemperature(weather.LowC);
-            WeatherIsClear = isClear;
+            WeatherIconKind = WeatherCodes.IconKind(weather.WeatherCode, weather.IsDay);
         });
     }
 

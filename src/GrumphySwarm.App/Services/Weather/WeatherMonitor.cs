@@ -126,7 +126,7 @@ public sealed class WeatherMonitor : IDisposable
                 + latitude.ToString("0.####", culture)
                 + "&longitude="
                 + longitude.ToString("0.####", culture)
-                + "&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto";
+                + "&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto";
 
             using (var document = JsonDocument.Parse(_http.GetStringAsync(forecastUri).GetAwaiter().GetResult()))
             {
@@ -138,6 +138,7 @@ public sealed class WeatherMonitor : IDisposable
                     HighC: daily.GetProperty("temperature_2m_max")[0].GetDouble(),
                     LowC: daily.GetProperty("temperature_2m_min")[0].GetDouble(),
                     WeatherCode: current.GetProperty("weather_code").GetInt32(),
+                    IsDay: current.TryGetProperty("is_day", out var isDayElement) && isDayElement.GetInt32() == 1,
                     Timestamp: DateTimeOffset.Now);
             }
 

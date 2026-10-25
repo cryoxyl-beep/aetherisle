@@ -1,51 +1,45 @@
 <div align="center">
 
-# 🌘 Aetherisle
+# 🏝️ Aetherisle
 
-### A native Dynamic Island for Windows 11 — living on your desktop, not in a browser.
+**A native Dynamic Island for Windows 11 — notch UI, real media, live stats, earbud battery, weather.**
 
-**C# · .NET 10 · WPF · zero Electron · zero web views**
+Pure C# / .NET 10 / WPF. No Electron. No web views.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-0A84FF.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2011-0078D4)](https://github.com)
 [![UI](https://img.shields.io/badge/UI-WPF-9B4F96)](https://learn.microsoft.com/dotnet/desktop/wpf/)
-[![Tests](https://img.shields.io/badge/tests-120%2F120-30D158)](#testing)
-[![Release](https://img.shields.io/badge/download-v0.5.2-FF2D55)](https://github.com/cryoxyl-beep/aetherisle/releases/latest)
+[![Tests](https://img.shields.io/badge/tests-132%2F132-30D158)](#-testing)
+[![Release](https://img.shields.io/badge/download-v0.6.0-FF2D55)](https://github.com/cryoxyl-beep/aetherisle/releases/latest)
+[![Beta](https://img.shields.io/badge/status-beta-8B5CF6)](https://github.com/cryoxyl-beep/aetherisle/releases)
 
-### ⬇️ [**Download Aetherisle.exe**](https://github.com/cryoxyl-beep/aetherisle/releases/latest/download/Aetherisle.exe) — double-click and run. No install, no .NET, no admin.
+### ⬇️ Direct download
 
-*(or grab the [full build as a zip](https://github.com/cryoxyl-beep/aetherisle/releases/latest/download/Aetherisle-win-x64.zip))*
-
-> **🚧 Status: Active Development.** Aetherisle ships early and improves fast.
-> Current builds are stable for daily use, but this is a young project — if you
-> hit a bug, [open an issue](https://github.com/cryoxyl-beep/aetherisle/issues);
-> fixes and improvements land in
-> [upcoming releases](https://github.com/cryoxyl-beep/aetherisle/releases).
-
-*A pure-black capsule that floats on your screen — with real album art, a live audio
-visualizer, a full media player, volume/brightness/battery glanceables, and Bluetooth
-earbud status. Built like a system component, not a webpage.*
+| File | What it is |
+|---|---|
+| [**Aetherisle.exe**](https://github.com/cryoxyl-beep/aetherisle/releases/latest/download/Aetherisle.exe) | Single-file, self-contained (~185 MB) — **just run it, no install, no .NET, no admin** |
+| [**Aetherisle-win-x64.zip**](https://github.com/cryoxyl-beep/aetherisle/releases/latest/download/Aetherisle-win-x64.zip) | Zipped copy of the same exe |
 
 </div>
 
----
-
-## 🎯 The problems Aetherisle solves
-
-Windows has no Dynamic Island — and the usual workarounds all hurt. Aetherisle exists to fix each of those pains natively:
-
-| The problem | How Aetherisle solves it |
-|---|---|
-| **Media controls live in buried windows.** Changing a track means alt-tabbing and hunting for Spotify / Apple Music / the right browser tab. | The island surfaces the *actual* system media session — title, artist, artwork, live progress bar and transport buttons — from any app publishing one, without stealing focus from what you're doing. |
-| **Now-playing widgets are fake or ugly.** Placeholder art, static icons, visualizers that just wiggle on a timer. | Real SMTC metadata, real album artwork (allow-listed to your player apps), and a genuine WASAPI-loopback FFT visualizer reacting to the audio your PC is producing — flat in silence, alive when sound plays. |
-| **Overlays block what's underneath.** A top-of-screen bar eats the clicks meant for the browser tab behind it, and hover-expand drives you mad. | Pixel-exact silhouette hit-testing: only the island itself is interactive. Hold **Shift** and the island goes full ghost — click-through, no hover-expand — so the tab beneath stays perfectly usable. |
-| **Repositioning overlays is janky** — config files, registry keys, or "grab the invisible resize handle". | Hold **Shift + left-drag** anywhere on the island: Windows' own native drag moves it, collapsed or expanded, and the position survives restarts. |
-| **Volume / brightness / battery feedback is scattered** across flyouts, taskbar corners and the Settings app. | One glance in the pill: volume icon → live % while adjusting → back (red when muted), brightness flashes, system battery with charge state — event-driven, no polling lag. |
-| **Bluetooth earbud battery is invisible.** Windows shows it in Settings, but no lightweight overlay surfaces it. | Middle-click anywhere (or double-tap the island) for the battery capsule — the same Hands-Free-Profile battery source Windows Settings reads, with 3D device art and the % inside the ring. |
-| **"Desktop widget" usually means Electron.** Hundreds of MB of Chromium for a clock. | Pure native WPF on .NET 10 — one process, GPU-composited UI, no browser, no web view, no JS runtime. |
+> [!IMPORTANT]
+> 🟣 **Aetherisle is in BETA.** Each update ships new features and bug fixes — expect rapid
+> iteration and the occasional rough edge. Found a bug? [**Open an issue**](https://github.com/cryoxyl-beep/aetherisle/issues).
+> Want to help build it? [**Pull requests are welcome**](https://github.com/cryoxyl-beep/aetherisle/pulls).
 
 ---
+
+## ✨ What is this?
+
+Aetherisle lives in the strip of screen Windows never uses — the top-center notch zone —
+and turns it into a living island:
+
+- **Collapsed pill** — album art · volume (live %, red when muted) · system battery · 12-hour clock · a radial audio visualizer dancing to whatever is playing.
+- **Expanded Nook** — now-playing with real source-app badge, transport controls and progress · date & events · **live weather with animated Meteocons Lottie icons**.
+- **Media control center** — full player view for Apple Music / Spotify / any SMTC session.
+- **Stats** — CPU / GPU / RAM ring gauges, disk, network throughput, uptime, top apps.
+- **Earbud battery capsule** — real battery % for allow-listed buds (Airdopes 138, Zeb Duke).
 
 ## 📸 Previews — feature by feature
 
@@ -62,39 +56,46 @@ artist · app, live waveform, progress bar with elapsed / remaining, and prev / 
 
 ![2 — The media player](docs/previews/2-media-player.png)
 
-**3 — The earbud battery capsule (middle-click or double-tap).** The same
-Hands-Free-Profile battery Windows Settings reads — 3D device art, connection state and
-the percentage right inside the ring. Allow-listed to your own devices.
+**3 — Earbud battery capsule (middle-click or double-tap).** Real HFP/GATT battery
+percentages inside the ring; the 3D art ships embedded in the exe.
 
 ![3 — Earbud battery capsule](docs/previews/3-earbud-battery.png)
 
----
+## 🎯 The problems Aetherisle solves
 
-## ✨ Feature tour
+| The problem | How Aetherisle solves it |
+|---|---|
+| **Overlays block what's underneath.** A top-of-screen bar eats the clicks meant for the browser tab behind it, and hover-expand drives you mad. | Pixel-exact silhouette hit-testing: only the island itself is interactive. Hold **Shift** and it goes full ghost — true OS-level click-through, no hover-expand. |
+| **Repositioning overlays is janky.** Config files, registry keys, invisible resize handles. | **Shift + left-drag** anywhere on the island — even while ghosted. Position persists across restarts and respects monitor bounds and DPI. |
+| **Now-playing widgets are fake.** They show a static cover or break when you switch apps. | Real SMTC data: artwork, title, artist, transport and timeline from Apple Music, Spotify and any media session Windows knows about. |
+| **Bluetooth battery is invisible.** Windows buries it (when the device even reports it). | Four battery channels (AEP × device/container/service + HFP PnP property + GATT) — if Windows can see the %, the island shows it. Middle-click or double-tap. |
+| **Widget apps are heavy.** Electron shells idling at half a gigabyte. | One native WPF process. Event-driven services. No browsers, no webviews. |
 
-| | Feature | How |
+## 🔥 Features
+
+| | Feature | Details |
 |---|---|---|
-| 🎵 | **Live media island** | Real SMTC data: title, artist, artwork, transport controls, progress bar with elapsed / remaining — from Spotify, Apple Music, browsers and any app that publishes a media session |
-| 🎨 | **Album art, allow-listed** | Artwork shows for Spotify, Apple Music and web players only — one obvious file to edit ([MediaAllowList.cs](src/GrumphySwarm.Core/Media/MediaAllowList.cs)) |
-| 📊 | **Real audio visualizer** | WASAPI loopback capture + custom FFT — the bars dance with *actual* system audio (radial in the pill, linear in the player) and go flat in silence. No fake animations |
-| 🔊 | **Volume glance** | Icon → live % while you change it → back to icon. Muted = red icon. All event-driven Core Audio |
-| 🔆 | **Brightness glance** | WMI event-driven; DDC/CI fallback for external monitors |
-| 🔋 | **System battery** | Charge %, charging bolt, green/amber/red — between volume and clock |
-| 📈 | **Live system stats** | Stats tab: ring gauges for CPU / GPU / RAM, disk space, network ↓/↑, uptime and top apps by CPU — real performance counters, 2-second refresh, unavailable hardware hidden honestly |
-| 🎧 | **Earbud battery capsule** | Middle-click anywhere or double-tap the island — Airdopes 138 & Zeb Duke allow-listed, four battery channels polled (AEP × device/container/service + GATT) |
-| 🖱 | **Free repositioning** | **Shift + left-drag** the island anywhere — position persists across restarts and respects monitor bounds |
-| 👻 | **Shift = full ghost mode** | True OS-level click-through (WS_EX_TRANSPARENT): no hover-expand, every click and scroll lands on the app beneath; drag while holding Shift to move it |
-| 🙈 | **Ctrl + Shift = instant hide** | The island vanishes while both keys are held and returns the moment either is released |
-| 🌤 | **Live weather** | Real geo-located conditions (open-meteo) with today's high/low in the Nook view — no fabricated numbers when offline |
-| 🎵 | **Brand-logo source badge** | Large real Apple Music / Spotify logo pinned to the artwork corner (other apps: icon extracted from the executable) |
-| ⏯ | **Custom transport glyphs** | Bare filled play / pause / next / previous icons (no button chrome) in both the Nook mini player and the full media view |
+| 🎵 | **Now playing, honestly** | Real SMTC session data — title, artist, transport, timeline — from Apple Music, Spotify, browsers, anything Windows sees |
+| 🎨 | **Brand-logo source badge** | Large real Apple Music / Spotify logo pinned to the artwork corner; other apps get their actual executable icon |
+| ⏯ | **Custom transport glyphs** | Bare filled play / pause / next / previous icons (no button chrome) in the Nook mini-player and the full media view |
+| 🌤 | **Live weather + Meteocons Lottie** | Real geo-located conditions (open-meteo, IP geolocation with provider fallback), today's high/low, day/night icons — the **official animated Meteocons Lottie files** playing natively |
+| 👻 | **Shift = full ghost mode** | True OS-level click-through (`WS_EX_TRANSPARENT`): no hover-expand, clicks and scrolls land on the app beneath |
+| 🖱 | **Shift + drag = move** | Reposition anywhere — persists across restarts, DPI-aware, monitor-clamped |
+| 🙈 | **Ctrl + Shift = instant hide** | Island vanishes while held, returns the instant either key is released |
+| 📈 | **Live system stats** | CPU / GPU / RAM ring gauges with real percentages, disk space, network ↓/↑, uptime, top apps by CPU — performance counters, 2 s refresh |
+| 🎧 | **Earbud battery capsule** | Middle-click or double-tap — Airdopes 138 & Zeb Duke allow-listed, four battery channels, honest "not reported" when the device stays silent |
 | 📌 | **Pinned state** | Pin the expanded panel; click outside to dismiss |
-| 📅 | **Nook tab** | Media card · mini-calendar (real dates) · pet slot reserved |
-| 🤖 | **Agents tab** | Local agent profiles (create/edit/delete, JSON-persisted) — the runtime dock for what's next |
+| 🛡 | **Self-healing window** | Watchdog strips rogue window ownership and recovers from minimize/hide/cloak/off-monitor — the island never stays gone |
+| 🤖 | **Agents tab** | Local agent profiles (create/edit/delete, JSON-persisted) — the dock for what's next |
 
 ## 🚀 Quick start
 
+1. Download **[Aetherisle.exe](https://github.com/cryoxyl-beep/aetherisle/releases/latest/download/Aetherisle.exe)**
+2. Run it — it lives in the tray; the island appears top-center on your primary display
+3. Hover it. Play music. Middle-click it. Hold Shift. That's the tour.
+
 ```powershell
+# from source
 git clone https://github.com/cryoxyl-beep/aetherisle.git
 cd aetherisle
 dotnet build GrumphySwarm.slnx -c Release
@@ -102,7 +103,7 @@ src\GrumphySwarm.App\bin\Release\net10.0-windows10.0.26100\GrumphySwarm.exe
 ```
 
 <details>
-<summary><b>📦 Self-contained publish</b> (no .NET install needed — ~182 MB)</summary>
+<summary><b>📦 Self-contained publish</b> (no .NET install needed — ~185 MB)</summary>
 
 ```powershell
 dotnet publish src/GrumphySwarm.App/GrumphySwarm.App.csproj `
@@ -114,60 +115,52 @@ dotnet publish src/GrumphySwarm.App/GrumphySwarm.App.csproj `
 
 | Gesture | Action |
 |---|---|
-| **Hover** the island | Expands (media player if something is playing, Nook/Agents otherwise) |
-| **Click** the pill (or the media card / artwork) | Open the media player — always an explicit action; hover never hijacks the view |
+| **Hover** the island | Expands the Nook (media · date · weather) |
+| **Click** the media card / artwork | Open the full media control center |
+| **Click** a nav icon | Nook · Agents · Stats — the battery pill opens Stats |
 | **Double-click** / **middle-click anywhere** | Earbud battery capsule |
-| **Hold Shift + scroll** over the island | Open the media player while the island stays click-through |
-| **Shift + left-drag on the island** | Move it anywhere — works while the island is fully click-through |
-| **Hold Shift** | Ghost mode: no hover-expand, clicks land beneath; **Shift + drag** moves the island |
-| **Hold Ctrl + Shift** | Hide the island completely until either key is released |
-| **Pin** button | Keep the panel open; click outside to unpin |
+| **Hold Shift** | Ghost mode — full click-through, no hover-expand |
+| **Shift + left-drag** on the island | Move it anywhere, even while ghosted |
+| **Hold Ctrl + Shift** | Hide completely until either key is released |
+| **Shift + scroll** over the island | Open the media control center while staying click-through |
+| **Pin** (lock icon) | Keep the panel open; click outside to unpin |
 | Tray icon → Exit | Clean shutdown |
-
-## 🏗 Architecture
-
-```
-GrumphySwarm.slnx
-├── src/GrumphySwarm.Core/          # pure, UI-free logic — fully unit-tested
-│   ├── Audio/SpectrumAnalyzer.cs   # hand-rolled FFT + playback clock
-│   ├── Media/MediaAllowList.cs     # ✏️ your allow-lists live here
-│   ├── Layout/                     # capsule geometry + DPI placement math
-│   ├── Monitors/                   # contracts, transient status, presenters
-│   └── State/ Agents/ Settings/ Time/
-├── src/GrumphySwarm.App/           # WPF host (net10.0-windows10.0.26100)
-│   ├── Controls/NotchIsland.*      # 4-layer island + deterministic animator
-│   ├── Services/Audio/             # Core Audio volume + WASAPI loopback FFT
-│   ├── Services/Bluetooth/         # 4-channel earbud battery
-│   ├── Services/Brightness/ Media/ Power/
-│   └── ViewModels/ Views/ Themes/ Interop/
-└── tests/GrumphySwarm.Tests/       # 94 xUnit tests
-```
-
-**Native window behavior:** `WS_EX_NOACTIVATE` (never steals keyboard focus), `WS_EX_TOOLWINDOW` (invisible to Alt+Tab), silhouette-exact `WM_NCHITTEST` click-through, per-monitor-v2 DPI, single instance, tray menu, background file logging with 7-day rotation.
-
-## ⚠️ Honest limitations
-
-- **Earbud battery %**: Airdopes 138 exposes no battery through any public Windows channel (AEP device/container/service and GATT Battery Service were all probed live — Windows Settings reads a vendor channel that isn't exposed to apps). The capsule shows "Connected" honestly; if the device or a Windows build ever reports it, the green ring lights up with zero code changes. The **Zeb Duke** may behave differently — try it.
-- **Browser artwork**: browsers don't tell the OS which site is playing, and Aetherisle never scrapes windows — browser sessions are trusted as your web player (music.apple.com). Remove browser tokens in the allow-list to disable.
-- SMTC positions are event-based; the progress bar interpolates by wall clock between reports.
-- No multi-monitor hosting yet; the island lives on the primary display.
 
 ## 🧪 Testing
 
+132 xUnit tests cover the pure logic: the interaction state machine, silhouette
+geometry and layout math, media allow-lists, playback clock interpolation, weather
+code → label/icon mapping, stats formatting, transient overlays, settings
+persistence and agent profile storage.
+
 ```powershell
-dotnet test GrumphySwarm.slnx    # 94/94 — state machine, FFT math, silhouette,
-                                 # allow-lists, playback clock, persistence
+dotnet test GrumphySwarm.slnx
 ```
+
+## 🏗 Architecture
+
+- **GrumphySwarm.Core** — pure, testable logic: state machine, layout math, presenters, allow-lists, FFT.
+- **GrumphySwarm.App** — WPF host: native interop (`WS_EX_NOACTIVATE`/`TOOLWINDOW`/`TOPMOST`, per-pixel hit-testing, LL hooks for gestures), event-driven monitors (Core Audio, SMTC, WMI brightness, Bluetooth AEP/HFP/GATT, performance counters), and the island control itself.
+- **No fake data.** Anything a device or driver won't report is shown as absent — never invented.
 
 ## 🗺 Roadmap
 
-- [ ] Desktop pets 🐾 (the reserved slot is waiting)
-- [ ] Agent runtime + live status feed into the Agents tab
-- [ ] Settings window (delays, modules, allow-list editor)
-- [ ] Composition-powered shadows & multi-monitor islands
+- Real calendar/event provider for the Nook events column
+- Settings surface (the gear is waiting)
+- Desktop pet for the reserved Nook slot
+- Agent runtime for the Agents tab
+
+## 🤝 Contributing
+
+Bug reports → [issues](https://github.com/cryoxyl-beep/aetherisle/issues) · code → [pull requests](https://github.com/cryoxyl-beep/aetherisle/pulls).
+Keep it native (WPF/.NET), keep the no-fake-data rule, and run the tests.
 
 ## 📄 License
 
-[MIT](LICENSE) — © 2026 cryoxyl-beep. Ship it, fork it, make it yours.
+[MIT](LICENSE) — weather icons by [Meteocons](https://bas.dev/work/meteocons) (MIT, Bas Milius).
 
-> The executable keeps its original working name `GrumphySwarm.exe` — everything else here is Aetherisle.
+<div align="center">
+
+**[⬇ Download the latest release](https://github.com/cryoxyl-beep/aetherisle/releases/latest)**
+
+</div>
