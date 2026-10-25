@@ -252,19 +252,29 @@ public partial class NotchViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string mediaStatusText = string.Empty;
 
-    // Source-app badge on the Nook artwork: the real app icon when extractable,
-    // else the tinted note fallback.
+    // Source-app badge on the Nook artwork: real brand logos for Apple Music /
+    // Spotify, extracted app icon for other sources.
     [ObservableProperty]
     private bool mediaSourceBadgeVisible;
 
     [ObservableProperty]
-    private string mediaSourceBadgeBrush = "#FC3C44";
+    private bool isAppleMusicSource;
+
+    [ObservableProperty]
+    private bool isSpotifySource;
+
+    [ObservableProperty]
+    private string mediaSourceBadgeBrush = "Transparent";
 
     [ObservableProperty]
     private string mediaSourceBadgeToolTip = string.Empty;
 
     [ObservableProperty]
     private ImageSource? mediaSourceAppIcon;
+
+    /// <summary>True while the session is actively playing (image toggle for play/pause).</summary>
+    [ObservableProperty]
+    private bool isMediaPlaying;
 
     [ObservableProperty]
     private string playPauseGlyph = StatusPresenters.PlayGlyph;
@@ -802,6 +812,7 @@ public partial class NotchViewModel : ObservableObject, IDisposable
             PlayPauseGlyph = StatusPresenters.PlayPauseGlyph(media?.Status ?? MediaPlaybackStatus.Unknown);
             HasActiveMedia = StatusPresenters.HasUsableMedia(media);
             _isPlaying = media?.Status == MediaPlaybackStatus.Playing;
+            IsMediaPlaying = _isPlaying;
 
             UpdateSourceBadge(media);
             UpdateMediaTotalText();
@@ -900,33 +911,50 @@ public partial class NotchViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Sets the artwork source badge: the real app icon (extracted from the
-    /// package or executable) with the tinted note as fallback.
+    /// Sets the artwork source badge: real brand logos (user-supplied assets)
+    /// for Apple Music and Spotify; for any other source the app icon
+    /// extracted from its package/executable, or no badge at all.
     /// </summary>
     private void UpdateSourceBadge(MediaInfo? media)
     {
         var app = media?.AppName ?? string.Empty;
-        MediaSourceAppIcon = _appIcons.GetIcon(media?.SourceAppUserModelId ?? string.Empty);
 
         if (string.IsNullOrEmpty(app) || !HasActiveMedia)
         {
             MediaSourceBadgeVisible = false;
+            IsAppleMusicSource = false;
+            IsSpotifySource = false;
+            MediaSourceAppIcon = null;
             return;
         }
 
         if (app.Contains("apple", StringComparison.OrdinalIgnoreCase))
         {
-            MediaSourceBadgeBrush = "#FC3C44";
+            IsAppleMusicSource = true;
+            IsSpotifySource = false;
+            MediaSourceAppIcon = null;
+            MediaSourceBadgeBrush = "Transparent";
             MediaSourceBadgeToolTip = "Playing from Apple Music";
             MediaSourceBadgeVisible = true;
+            return;
         }
-        else if (app.Contains("spotify", StringComparison.OrdinalIgnoreCase))
+
+        if (app.Contains("spotify", StringComparison.OrdinalIgnoreCase))
         {
-            MediaSourceBadgeBrush = "#1DB954";
+            IsAppleMusicSource = false;
+            IsSpotifySource = true;
+            MediaSourceAppIcon = null;
+            MediaSourceBadgeBrush = "Transparent";
             MediaSourceBadgeToolTip = "Playing from Spotify";
             MediaSourceBadgeVisible = true;
+            return;
         }
-        else if (MediaSourceAppIcon is not null)
+
+        IsAppleMusicSource = false;
+        IsSpotifySource = false;
+        MediaSourceAppIcon = _appIcons.GetIcon(media?.SourceAppUserModelId ?? string.Empty);
+
+        if (MediaSourceAppIcon is not null)
         {
             MediaSourceBadgeBrush = "#1C1C22";
             MediaSourceBadgeToolTip = $"Playing from {app}";

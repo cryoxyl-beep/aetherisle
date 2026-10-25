@@ -14,7 +14,7 @@
     <LangVersion>latest</LangVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>aetherisle.ico</ApplicationIcon>
-    <Version>0.5.0</Version>
+    <Version>0.5.1</Version>
     <Product>Aetherisle</Product>
     <Description>Dynamic Island-style notch host for Windows 11</Description>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
@@ -35,6 +35,12 @@
 
   <ItemGroup>
     <Resource Include="Resources\earbuds3d.png" />
+    <Resource Include="Resources\applemusic.png" />
+    <Resource Include="Resources\spotify.png" />
+    <Resource Include="Resources\icon-play.png" />
+    <Resource Include="Resources\icon-pause.png" />
+    <Resource Include="Resources\icon-next.png" />
+    <Resource Include="Resources\icon-previous.png" />
   </ItemGroup>
 
 </Project>

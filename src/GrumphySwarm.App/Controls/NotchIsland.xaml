@@ -366,39 +366,36 @@
                                     <Binding Path="HasArtwork" Converter="{StaticResource BooleanToVisibilityConverter}" FallbackValue="Collapsed" />
                                 </Border.Visibility>
                             </Border>
-                            <Border Width="24"
-                                    Height="24"
-                                    CornerRadius="12"
+                            <Border Width="26"
+                                    Height="26"
+                                    CornerRadius="13"
                                     Background="{Binding MediaSourceBadgeBrush}"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Bottom"
-                                    Margin="0,0,-2,-2"
+                                    Margin="0,0,-3,-3"
                                     ToolTip="{Binding MediaSourceBadgeToolTip}"
                                     Visibility="{Binding MediaSourceBadgeVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <Grid>
+                                    <Image Source="/Resources/applemusic.png"
+                                           Width="18"
+                                           Height="18"
+                                           RenderOptions.BitmapScalingMode="HighQuality"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Visibility="{Binding IsAppleMusicSource, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                    <Image Source="/Resources/spotify.png"
+                                           Width="18"
+                                           Height="18"
+                                           RenderOptions.BitmapScalingMode="HighQuality"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Visibility="{Binding IsSpotifySource, Converter={StaticResource BooleanToVisibilityConverter}}" />
                                     <Image Source="{Binding MediaSourceAppIcon, FallbackValue={x:Null}}"
                                            Width="15"
                                            Height="15"
                                            RenderOptions.BitmapScalingMode="HighQuality"
                                            HorizontalAlignment="Center"
                                            VerticalAlignment="Center" />
-                                    <TextBlock Text="&#xE8D6;"
-                                               FontFamily="{StaticResource IconFontFamily}"
-                                               FontSize="11"
-                                               Foreground="White"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding MediaSourceAppIcon}" Value="{x:Null}">
-                                                        <Setter Property="Visibility" Value="Visible" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
                                 </Grid>
                             </Border>
                         </Grid>
@@ -421,18 +418,20 @@
                                         Width="30"
                                         Height="30"
                                         Background="#FF1E1E24"
-                                        FontSize="11"
                                         Command="{Binding PreviousTrackCommand}"
-                                        Content="{x:Static app:StatusGlyphs.Previous}">
+                                        ToolTip="Previous">
+                                    <Image Source="/Resources/icon-previous.png"
+                                           Width="15"
+                                           Height="10"
+                                           RenderOptions.BitmapScalingMode="HighQuality" />
                                     <Button.Visibility>
                                         <Binding Path="CanPrevious" Converter="{StaticResource BooleanToVisibilityConverter}" FallbackValue="Collapsed" />
                                     </Button.Visibility>
                                 </Button>
                                 <Button Command="{Binding PlayPauseCommand}"
-                                        Content="{Binding PlayPauseGlyph}"
+                                        ToolTip="Play / pause"
                                         Width="42"
                                         Height="42"
-                                        FontSize="16"
                                         Margin="14,0">
                                     <Button.Style>
                                         <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
@@ -443,12 +442,7 @@
                                                         <Border x:Name="Bd"
                                                                 Background="{TemplateBinding Background}"
                                                                 CornerRadius="21">
-                                                            <TextBlock Text="{TemplateBinding Content}"
-                                                                       FontFamily="{StaticResource IconFontFamily}"
-                                                                       FontSize="{TemplateBinding FontSize}"
-                                                                       Foreground="{TemplateBinding Foreground}"
-                                                                       HorizontalAlignment="Center"
-                                                                       VerticalAlignment="Center" />
+                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                         </Border>
                                                         <ControlTemplate.Triggers>
                                                             <Trigger Property="IsEnabled" Value="False">
@@ -469,14 +463,49 @@
                                     <Button.Visibility>
                                         <Binding Path="CanPlayPause" Converter="{StaticResource BooleanToVisibilityConverter}" FallbackValue="Collapsed" />
                                     </Button.Visibility>
+                                    <Grid>
+                                        <Image Source="/Resources/icon-play.png"
+                                               Width="15"
+                                               Height="17"
+                                               RenderOptions.BitmapScalingMode="HighQuality">
+                                            <Image.Style>
+                                                <Style TargetType="Image">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsMediaPlaying}" Value="False">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Image.Style>
+                                        </Image>
+                                        <Image Source="/Resources/icon-pause.png"
+                                               Width="15"
+                                               Height="17"
+                                               RenderOptions.BitmapScalingMode="HighQuality">
+                                            <Image.Style>
+                                                <Style TargetType="Image">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsMediaPlaying}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Image.Style>
+                                        </Image>
+                                    </Grid>
                                 </Button>
                                 <Button Style="{StaticResource IconButtonStyle}"
                                         Width="30"
                                         Height="30"
                                         Background="#FF1E1E24"
-                                        FontSize="11"
                                         Command="{Binding NextTrackCommand}"
-                                        Content="{x:Static app:StatusGlyphs.Next}">
+                                        ToolTip="Next">
+                                    <Image Source="/Resources/icon-next.png"
+                                           Width="15"
+                                           Height="10"
+                                           RenderOptions.BitmapScalingMode="HighQuality" />
                                     <Button.Visibility>
                                         <Binding Path="CanNext" Converter="{StaticResource BooleanToVisibilityConverter}" FallbackValue="Collapsed" />
                                     </Button.Visibility>
@@ -1005,7 +1034,7 @@
                                Typography.NumeralAlignment="Tabular" />
                 </Grid>
 
-                <!-- transport row: prev / play-pause / next -->
+                <!-- transport row: prev / play-pause / next (custom filled glyphs) -->
                 <StackPanel Grid.Row="2"
                             Orientation="Horizontal"
                             HorizontalAlignment="Center"
@@ -1013,26 +1042,66 @@
                     <Button Style="{StaticResource TransportButtonStyle}"
                             Width="34"
                             Height="34"
-                            FontSize="13"
                             IsEnabled="{Binding CanPrevious}"
                             Command="{Binding PreviousTrackCommand}"
-                            Content="{x:Static app:StatusGlyphs.Previous}" />
+                            ToolTip="Previous">
+                        <Image Source="/Resources/icon-previous.png"
+                               Width="17"
+                               Height="11"
+                               RenderOptions.BitmapScalingMode="HighQuality" />
+                    </Button>
                     <Button Style="{StaticResource TransportButtonStyle}"
                             Width="46"
                             Height="46"
-                            FontSize="20"
                             Margin="18,0,0,0"
                             IsEnabled="{Binding CanPlayPause}"
                             Command="{Binding PlayPauseCommand}"
-                            Content="{Binding PlayPauseGlyph}" />
+                            ToolTip="Play / pause">
+                        <Grid>
+                            <Image Source="/Resources/icon-play.png"
+                                   Width="17"
+                                   Height="19"
+                                   RenderOptions.BitmapScalingMode="HighQuality">
+                                <Image.Style>
+                                    <Style TargetType="Image">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsMediaPlaying}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Image.Style>
+                            </Image>
+                            <Image Source="/Resources/icon-pause.png"
+                                   Width="17"
+                                   Height="19"
+                                   RenderOptions.BitmapScalingMode="HighQuality">
+                                <Image.Style>
+                                    <Style TargetType="Image">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsMediaPlaying}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Image.Style>
+                            </Image>
+                        </Grid>
+                    </Button>
                     <Button Style="{StaticResource TransportButtonStyle}"
                             Width="34"
                             Height="34"
-                            FontSize="13"
                             Margin="18,0,0,0"
                             IsEnabled="{Binding CanNext}"
                             Command="{Binding NextTrackCommand}"
-                            Content="{x:Static app:StatusGlyphs.Next}" />
+                            ToolTip="Next">
+                        <Image Source="/Resources/icon-next.png"
+                               Width="17"
+                               Height="11"
+                               RenderOptions.BitmapScalingMode="HighQuality" />
+                    </Button>
                 </StackPanel>
             </Grid>
 
