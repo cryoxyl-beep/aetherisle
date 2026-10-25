@@ -35,8 +35,19 @@ public sealed class SingleInstanceGuard : IDisposable
 
         if (!createdNew)
         {
-            TrySignalExistingInstance();
-            return false;
+            // The name is taken — but by a REAL instance or by a zombie?
+            // Zombies (crashed/hung remnants) hold kernel objects while having
+            // no window, and they made later launches exit instantly — the
+            // "app randomly closes" bug. Only a visible island window counts
+            // as a running instance.
+            if (HasVisibleIslandWindow())
+            {
+                TrySignalExistingInstance();
+                return false;
+            }
+
+            // Zombie: fall through and run anyway; this process becomes the
+            // live instance.
         }
 
         _activateEvent = new EventWaitHandle(false, EventResetMode.AutoReset, _activateEventName);
@@ -48,6 +59,36 @@ public sealed class SingleInstanceGuard : IDisposable
             executeOnlyOnce: false);
 
         return true;
+    }
+
+    /// <summary>True when any visible top-level window with our title exists.</summary>
+    private static bool HasVisibleIslandWindow()
+    {
+        var found = false;
+
+        Interop.NativeMethods.EnumWindows((hwnd, _) =>
+        {
+            if (!Interop.NativeMethods.IsWindowVisible(hwnd))
+            {
+                return true;
+            }
+
+            var text = new string(' ', 64);
+            var length = Interop.NativeMethods.GetWindowText(hwnd, text, 64);
+            if (length > 0)
+            {
+                text = text[..length];
+                if (text.Contains("Grumphy Swarm Notch", StringComparison.Ordinal))
+                {
+                    found = true;
+                    return false; // stop enumeration
+                }
+            }
+
+            return true;
+        }, IntPtr.Zero);
+
+        return found;
     }
 
     private void TrySignalExistingInstance()

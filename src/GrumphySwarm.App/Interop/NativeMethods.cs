@@ -119,9 +119,28 @@ internal static class NativeMethods
     /// <summary>True while either Shift key is held.</summary>
     internal static bool IsShiftHeld() => (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
 
+    /// <summary>True while either Ctrl key is held.</summary>
+    internal static bool IsCtrlHeld() => (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+
+    internal delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    internal static extern int GetWindowText(IntPtr hWnd, string text, int maxCount);
+
+    internal const int WM_MOUSEWHEEL = 0x020A;
+    internal const int VK_CONTROL = 0x11;
 
     [StructLayout(LayoutKind.Sequential)]
     internal struct MSLLHOOKSTRUCT

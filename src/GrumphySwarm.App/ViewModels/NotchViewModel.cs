@@ -39,6 +39,7 @@ public partial class NotchViewModel : ObservableObject, IDisposable
     private readonly IMediaMonitor _mediaMonitor;
     private readonly IBluetoothBatteryMonitor _bluetoothMonitor;
     private readonly ISystemBatteryMonitor _systemBatteryMonitor;
+    private readonly Services.Telemetry.SystemStatsMonitor _statsMonitor;
     private readonly ILogger<NotchViewModel> _logger;
     private readonly Dispatcher _dispatcher;
     private readonly TransientStatusController _transient = new();
@@ -71,6 +72,7 @@ public partial class NotchViewModel : ObservableObject, IDisposable
         IMediaMonitor mediaMonitor,
         IBluetoothBatteryMonitor bluetoothMonitor,
         ISystemBatteryMonitor systemBatteryMonitor,
+        Services.Telemetry.SystemStatsMonitor statsMonitor,
         AudioSpectrumMonitor spectrum,
         AgentsViewModel agents,
         ILogger<NotchViewModel> logger)
@@ -83,6 +85,7 @@ public partial class NotchViewModel : ObservableObject, IDisposable
         _mediaMonitor = mediaMonitor;
         _bluetoothMonitor = bluetoothMonitor;
         _systemBatteryMonitor = systemBatteryMonitor;
+        _statsMonitor = statsMonitor;
         _logger = logger;
         _dispatcher = Dispatcher.CurrentDispatcher;
         Agents = agents;
@@ -145,6 +148,7 @@ public partial class NotchViewModel : ObservableObject, IDisposable
         _mediaMonitor.TimelineChanged += OnTimelineChanged;
         _bluetoothMonitor.StatusChanged += OnEarbudStatusChanged;
         _systemBatteryMonitor.BatteryChanged += OnSystemBatteryChanged;
+        _statsMonitor.SnapshotAvailable += OnStatsSnapshot;
 
         ReducedMotion = settings.ReducedMotion;
         UpdateClock(DateTime.Now);
@@ -275,6 +279,49 @@ public partial class NotchViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private int? batteryPercent;
 
+    // Stats tab.
+    [ObservableProperty]
+    private double? cpuPercent;
+
+    [ObservableProperty]
+    private double? gpuPercent;
+
+    [ObservableProperty]
+    private double? diskPercent;
+
+    partial void OnCpuPercentChanged(double? value) => OnPropertyChanged(nameof(CpuText));
+
+    partial void OnGpuPercentChanged(double? value) => OnPropertyChanged(nameof(GpuText));
+
+    partial void OnDiskPercentChanged(double? value) => OnPropertyChanged(nameof(DiskText));
+
+    [ObservableProperty]
+    private double cpuFraction;
+
+    [ObservableProperty]
+    private double gpuFraction;
+
+    [ObservableProperty]
+    private double diskFraction;
+
+    [ObservableProperty]
+    private string ramText = "—";
+
+    [ObservableProperty]
+    private double ramFraction;
+
+    [ObservableProperty]
+    private string netDownText = "0 B/s";
+
+    [ObservableProperty]
+    private string netUpText = "0 B/s";
+
+    [ObservableProperty]
+    private string uptimeText = "—";
+
+    [ObservableProperty]
+    private IReadOnlyList<AppUsage> topApps = [];
+
     /// <summary>Bound two-way by the Nook tab chip.</summary>
     public bool IsNookTab
     {
@@ -298,6 +345,39 @@ public partial class NotchViewModel : ObservableObject, IDisposable
             {
                 SelectedTab = NotchTab.Agents;
             }
+        }
+    }
+
+    /// <summary>Bound two-way by the Stats tab chip.</summary>
+    public bool IsStatsTab
+    {
+        get => SelectedTab == NotchTab.Stats;
+        set
+        {
+            if (value)
+            {
+                SelectedTab = NotchTab.Stats;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Explicit entry into the media player view: clicking the pill artwork,
+    /// clicking the Nook media card, or Shift+scroll over the island.
+    /// </summary>
+    public void OpenMediaPlayer() => SelectedTab = NotchTab.Media;
+
+    /// <summary>Runs the playback clock only while the player view is visible.</summary>
+    partial void OnSelectedTabChanged(NotchTab value)
+    {
+        if (value == NotchTab.Media)
+        {
+            UpdatePlaybackTexts();
+            _playbackTimer.Start();
+        }
+        else
+        {
+            _playbackTimer.Stop();
         }
     }
 
@@ -355,14 +435,15 @@ public partial class NotchViewModel : ObservableObject, IDisposable
     private void TogglePin() => _machine.TogglePin();
 
     /// <summary>
-    /// Single click on the bare island: when a media session is active the
-    /// expanded island shows the media player view; otherwise the Nook panel.
+    /// Single click on the bare island / pill artwork: opens the media player
+    /// view when a session is active. Hover-expand itself always shows the
+    /// Nook/Agents/Stats tabs — the player is always an explicit action.
     /// </summary>
     public void HandleIslandClick()
     {
         if (HasActiveMedia)
         {
-            SelectedTab = NotchTab.Media;
+            OpenMediaPlayer();
         }
     }
 
@@ -452,19 +533,12 @@ public partial class NotchViewModel : ObservableObject, IDisposable
             transition.To,
             transition.Reason);
 
-        // Hovering/clicking the pill with an active session shows the player
-        // (matching the reference layout); without media it shows Nook/Agents.
-        if (transition.To is NotchState.Expanded or NotchState.Pinned)
+        // Every hover-expand lands on the tab view (Nook/Agents/Stats); the
+        // media player only ever opens through an explicit action.
+        if (transition.To is NotchState.Expanded or NotchState.Pinned
+            && SelectedTab == NotchTab.Media)
         {
-            if (HasActiveMedia)
-            {
-                SelectedTab = NotchTab.Media;
-                _playbackTimer.Start();
-            }
-            else if (SelectedTab == NotchTab.Media)
-            {
-                SelectedTab = NotchTab.Nook;
-            }
+            SelectedTab = NotchTab.Nook;
         }
 
         StateChanged?.Invoke(transition.To);
@@ -540,6 +614,32 @@ public partial class NotchViewModel : ObservableObject, IDisposable
     {
         _dispatcher.BeginInvoke(() => SeedSystemBattery(state));
     }
+
+    private void OnStatsSnapshot(SystemStatsSnapshot snapshot)
+    {
+        _dispatcher.BeginInvoke(() =>
+        {
+            CpuPercent = snapshot.CpuPercent;
+            GpuPercent = snapshot.GpuPercent;
+            DiskPercent = snapshot.DiskPercent;
+            CpuFraction = StatsPresenters.BarFraction(snapshot.CpuPercent);
+            GpuFraction = StatsPresenters.BarFraction(snapshot.GpuPercent);
+            DiskFraction = StatsPresenters.BarFraction(snapshot.DiskPercent);
+            RamText = StatsPresenters.FormatMemory(snapshot.RamUsedGb, snapshot.RamTotalGb);
+            RamFraction = StatsPresenters.MemoryFraction(snapshot.RamUsedGb, snapshot.RamTotalGb);
+            NetDownText = StatsPresenters.FormatBytesPerSecond(snapshot.NetDownBytesPerSec);
+            NetUpText = StatsPresenters.FormatBytesPerSecond(snapshot.NetUpBytesPerSec);
+            UptimeText = StatsPresenters.FormatUptime(snapshot.Uptime);
+            TopApps = snapshot.TopApps;
+        });
+    }
+
+    /// <summary>Formatted CPU/GPU/disk percent for XAML.</summary>
+    public string CpuText => StatsPresenters.FormatPercent(CpuPercent);
+
+    public string GpuText => StatsPresenters.FormatPercent(GpuPercent);
+
+    public string DiskText => StatsPresenters.FormatPercent(DiskPercent);
 
     /// <summary>Seeds (or updates) the system battery display.</summary>
     public void SeedSystemBattery(SystemBatteryState state)
@@ -720,5 +820,6 @@ public partial class NotchViewModel : ObservableObject, IDisposable
         _mediaMonitor.TimelineChanged -= OnTimelineChanged;
         _bluetoothMonitor.StatusChanged -= OnEarbudStatusChanged;
         _systemBatteryMonitor.BatteryChanged -= OnSystemBatteryChanged;
+        _statsMonitor.SnapshotAvailable -= OnStatsSnapshot;
     }
 }

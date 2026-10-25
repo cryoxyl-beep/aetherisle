@@ -104,10 +104,23 @@ public partial class NotchIsland : UserControl
 
         // Island interactions: single click opens the media player when a
         // session is active, double click toggles the earbud battery capsule.
-        // Repositioning is Shift+drag, handled by the host window's global
-        // hook (the island itself is click-through while Shift is held).
-        // Clicks on real controls (buttons) pass through untouched.
+        // Repositioning is Ctrl+drag (native caption); Shift is full ghost
+        // mode handled by the host window. Clicks on real controls pass
+        // through untouched.
         PreviewMouseLeftButtonDown += OnIslandMouseDown;
+        MediaCard.MouseLeftButtonUp += OnMediaCardClick;
+    }
+
+    /// <summary>Clicking the Nook media card opens the player view (bare clicks only).</summary>
+    private void OnMediaCardClick(object sender, MouseButtonEventArgs e)
+    {
+        if (IsInsideButton(e.OriginalSource as DependencyObject))
+        {
+            return;
+        }
+
+        ViewModel?.OpenMediaPlayer();
+        e.Handled = true;
     }
 
     private NotchViewModel? ViewModel => DataContext as NotchViewModel;
@@ -145,6 +158,13 @@ public partial class NotchIsland : UserControl
             NotchState.Collapsed => IslandMode.Pill,
             _ => SelectedTab == NotchTab.Media ? IslandMode.Media : IslandMode.Panel,
         };
+    }
+
+    private void ApplyTab(NotchTab tab)
+    {
+        NookTab.Visibility = tab == NotchTab.Nook ? Visibility.Visible : Visibility.Collapsed;
+        AgentsTab.Visibility = tab == NotchTab.Agents ? Visibility.Visible : Visibility.Collapsed;
+        StatsTab.Visibility = tab == NotchTab.Stats ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // ------------------------------------------------------- transition system
@@ -332,11 +352,5 @@ public partial class NotchIsland : UserControl
         {
             ApplyTab(viewModel.SelectedTab);
         }
-    }
-
-    private void ApplyTab(NotchTab tab)
-    {
-        NookTab.Visibility = tab == NotchTab.Nook ? Visibility.Visible : Visibility.Collapsed;
-        AgentsTab.Visibility = tab == NotchTab.Agents ? Visibility.Visible : Visibility.Collapsed;
     }
 }

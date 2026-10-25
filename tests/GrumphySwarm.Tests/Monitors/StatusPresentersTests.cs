@@ -78,7 +78,15 @@ public class StatusPresentersTests
     [Fact]
     public void Null_media_renders_clean_empty_state()
     {
-        Assert.Equal("Nothing playing", StatusPresenters.MediaTitle(null));
+        Assert.Equal("Media", StatusPresenters.MediaTitle(null));
         Assert.Equal(string.Empty, StatusPresenters.MediaSubtitle(null));
+    }
+
+    [Fact]
+    public void Idle_session_shows_app_name_without_filler()
+    {
+        var idle = new MediaInfo("", "", "Apple Music", MediaPlaybackStatus.Stopped,
+            new MediaTransportControls(false, false, false), DateTimeOffset.Now);
+        Assert.Equal("Apple Music", StatusPresenters.MediaTitle(idle));
     }
 }

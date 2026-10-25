@@ -221,14 +221,13 @@ public partial class NotchWindow : Window
     }
 
     /// <summary>
-    /// Returns true (with a result) when the point must NOT hit the island:
-    ///  - outside the silhouette (always click-through), or
-    ///  - while Shift is held: OUTSIDE the silhouette stays fully click-through
-    ///    (browser tabs underneath stay clickable); INSIDE the silhouette the
-    ///    island reports itself as a caption — pressing the left button and
-    ///    dragging makes Windows itself move the window through its native
-    ///    drag loop. That is how Shift+drag is implemented: no low-level
-    ///    hooks, no WPF layout, nothing Windows can silently evict.
+    /// Hit-test routing:
+    ///   - Shift held → the ENTIRE island is click-through (full ghost mode);
+    ///     clicks and wheels land on whatever is behind it. The Shift+scroll
+    ///     gesture is handled globally in the mouse hook.
+    ///   - Ctrl held → the island is a native caption (left-drag moves the
+    ///     window through Windows' own drag loop); outside stays transparent.
+    ///   - Otherwise → silhouette-exact island hit / transparent elsewhere.
     /// </summary>
     private bool HandleNcHitTest(IntPtr lParam, out IntPtr result)
     {
@@ -249,19 +248,22 @@ public partial class NotchWindow : Window
 
             if (NativeMethods.IsShiftHeld())
             {
-                if (Island.HitTestSilhouette(islandPoint))
-                {
-                    result = new IntPtr(HTCAPTION);
-                }
-                else
-                {
-                    result = new IntPtr(NativeMethods.HTTRANSPARENT);
-                }
-
+                // Full ghost: everything passes through.
+                result = new IntPtr(NativeMethods.HTTRANSPARENT);
                 return true;
             }
 
-            if (!Island.HitTestSilhouette(islandPoint))
+            var onIsland = Island.HitTestSilhouette(islandPoint);
+
+            if (NativeMethods.IsCtrlHeld())
+            {
+                result = onIsland
+                    ? new IntPtr(HTCAPTION)
+                    : new IntPtr(NativeMethods.HTTRANSPARENT);
+                return true;
+            }
+
+            if (!onIsland)
             {
                 result = new IntPtr(NativeMethods.HTTRANSPARENT);
                 return true;
@@ -292,6 +294,7 @@ public partial class NotchWindow : Window
     private double _dragScaleX = 1, _dragScaleY = 1;
     private int _baseX, _baseY, _winW, _winH; // offset-zero placement, physical px
     private bool _nativeDragging;
+    private Rect _grabRectScreen; // island rect + margin (for the wheel gesture)
 
     private void RefreshDragCache()
     {
@@ -334,6 +337,14 @@ public partial class NotchWindow : Window
             _baseY = placement.Y;
             _winW = placement.Width;
             _winH = placement.Height;
+
+            var topLeft = Island.PointToScreen(new Point(0, 0));
+            var margin = 40 * _dragScaleX;
+            _grabRectScreen = new Rect(
+                topLeft.X - margin,
+                topLeft.Y - margin,
+                (Island.ActualWidth * _dragScaleX) + (2 * margin),
+                (Island.ActualHeight * _dragScaleY) + (2 * margin));
         }
         catch (InvalidOperationException)
         {
@@ -367,35 +378,50 @@ public partial class NotchWindow : Window
 
     private IntPtr LowLevelMouseProc(int code, IntPtr wParam, IntPtr lParam)
     {
-        if (code >= 0)
+        try
         {
-            var message = wParam.ToInt64();
-            var data = Marshal.PtrToStructure<NativeMethods.MSLLHOOKSTRUCT>(lParam);
-            var screenPoint = new Point(data.pt.X, data.pt.Y);
-
-            switch (message)
+            if (code >= 0)
             {
-                case NativeMethods.WM_MBUTTONDOWN:
-                    // Toggle the battery capsule on middle click, anywhere.
-                    Dispatcher.BeginInvoke(() => _viewModel.ToggleBattery());
-                    break;
+                var message = wParam.ToInt64();
+                var data = Marshal.PtrToStructure<NativeMethods.MSLLHOOKSTRUCT>(lParam);
+                var screenPoint = new Point(data.pt.X, data.pt.Y);
 
-                case NativeMethods.WM_LBUTTONDOWN or NativeMethods.WM_RBUTTONDOWN:
-                    // Never block the hook chain: decide later on the UI thread.
-                    Dispatcher.BeginInvoke(() =>
-                    {
-                        if (_viewModel.State != NotchState.Pinned)
-                        {
-                            return;
-                        }
+                switch (message)
+                {
+                    case NativeMethods.WM_MBUTTONDOWN:
+                        // Toggle the battery capsule on middle click, anywhere.
+                        Dispatcher.BeginInvoke(() => _viewModel.ToggleBattery());
+                        break;
 
-                        if (!IsPointOverIsland(screenPoint))
+                    case NativeMethods.WM_MOUSEWHEEL when NativeMethods.IsShiftHeld() && _grabRectScreen.Contains(screenPoint):
+                        // Shift + scroll over the (fully click-through) island:
+                        // open the media player view. The wheel is swallowed so
+                        // the app beneath doesn't zoom/scroll.
+                        Dispatcher.BeginInvoke(() => _viewModel.OpenMediaPlayer());
+                        return new IntPtr(1);
+
+                    case NativeMethods.WM_LBUTTONDOWN or NativeMethods.WM_RBUTTONDOWN:
+                        // Never block the hook chain: decide later on the UI thread.
+                        Dispatcher.BeginInvoke(() =>
                         {
-                            _viewModel.DismissFromOutsideClick();
-                        }
-                    });
-                    break;
+                            if (_viewModel.State != NotchState.Pinned)
+                            {
+                                return;
+                            }
+
+                            if (!IsPointOverIsland(screenPoint))
+                            {
+                                _viewModel.DismissFromOutsideClick();
+                            }
+                        });
+                        break;
+                }
             }
+        }
+        catch
+        {
+            // A hook callback must never throw — Windows would evict the hook
+            // (and an escaping exception can take the process down).
         }
 
         return NativeMethods.CallNextHookEx(_mouseHook, code, wParam, lParam);

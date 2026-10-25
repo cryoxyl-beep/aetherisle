@@ -40,9 +40,22 @@ public static class StatusPresenters
         && ((!string.IsNullOrWhiteSpace(media.Title) || !string.IsNullOrWhiteSpace(media.Artist))
             || media.Status is MediaPlaybackStatus.Playing or MediaPlaybackStatus.Paused);
 
-    /// <summary>Title line for the media card, with a clean fallback.</summary>
-    public static string MediaTitle(MediaInfo? media) =>
-        media is not null && !string.IsNullOrWhiteSpace(media.Title) ? media.Title : "Nothing playing";
+    /// <summary>Title line for the media card. No "Nothing playing" filler —
+    /// an idle card shows the source app or a quiet "Media" label.</summary>
+    public static string MediaTitle(MediaInfo? media)
+    {
+        if (media is not null && !string.IsNullOrWhiteSpace(media.Title))
+        {
+            return media.Title;
+        }
+
+        if (media is not null && !string.IsNullOrWhiteSpace(media.AppName))
+        {
+            return media.AppName;
+        }
+
+        return "Media";
+    }
 
     /// <summary>Artist · app line for the media card (may be empty).</summary>
     public static string MediaSubtitle(MediaInfo? media)

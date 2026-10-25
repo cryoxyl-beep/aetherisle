@@ -209,6 +209,18 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
     /// possibly with a profile suffix ("Airdopes 138 Hands-Free AG").</summary>
     private void OnPnpDeviceEvent(DeviceWatcher sender, DeviceInformation info)
     {
+        try
+        {
+            HandlePnpDevice(info);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Bluetooth: PnP handler failed (ignored).");
+        }
+    }
+
+    private void HandlePnpDevice(DeviceInformation info)
+    {
         var battery = ReadBatteryPercent(info.Properties);
         if (battery is null || !MediaAllowList.IsEarbudAllowed(info.Name))
         {
@@ -248,22 +260,47 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
     }
 
     private void OnWatcherAdded(DeviceWatcher sender, DeviceInformation info)
-        => UpdateFromProperties(info.Id, info.Name, info.Properties);
+    {
+        try
+        {
+            UpdateFromProperties(info.Id, info.Name, info.Properties);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Bluetooth: watcher-added handler failed (ignored).");
+        }
+    }
 
     private void OnWatcherUpdated(DeviceWatcher sender, DeviceInformationUpdate update)
-        => UpdateFromProperties(update.Id, ExtractName(update.Properties), update.Properties);
+    {
+        try
+        {
+            UpdateFromProperties(update.Id, ExtractName(update.Properties), update.Properties);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Bluetooth: watcher-updated handler failed (ignored).");
+        }
+    }
 
     private void OnWatcherRemoved(DeviceWatcher sender, DeviceInformationUpdate update)
     {
-        var changed = false;
-        lock (_gate)
+        try
         {
-            changed = _devices.Remove(update.Id);
-        }
+            var changed = false;
+            lock (_gate)
+            {
+                changed = _devices.Remove(update.Id);
+            }
 
-        if (changed)
+            if (changed)
+            {
+                Publish();
+            }
+        }
+        catch (Exception ex)
         {
-            Publish();
+            _logger.LogDebug(ex, "Bluetooth: watcher-removed handler failed (ignored).");
         }
     }
 

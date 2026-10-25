@@ -80,9 +80,10 @@ the percentage right inside the ring. Allow-listed to your own devices.
 | 🔊 | **Volume glance** | Icon → live % while you change it → back to icon. Muted = red icon. All event-driven Core Audio |
 | 🔆 | **Brightness glance** | WMI event-driven; DDC/CI fallback for external monitors |
 | 🔋 | **System battery** | Charge %, charging bolt, green/amber/red — between volume and clock |
+| 📈 | **Live system stats** | New Stats tab: CPU, GPU, disk, RAM with bars, network ↓/↑, uptime and top apps by CPU — real performance counters, 2-second refresh, unavailable hardware hidden honestly |
 | 🎧 | **Earbud battery capsule** | Middle-click anywhere or double-tap the island — Airdopes 138 & Zeb Duke allow-listed, four battery channels polled (AEP × device/container/service + GATT) |
-| 🖱 | **Free repositioning** | **Shift + left-drag** the island anywhere via Windows native drag — collapsed or expanded; position persists across restarts |
-| 👻 | **Shift = ghost mode** | Hover stops expanding; around the island every click passes straight through to the tab beneath (on the island itself, Shift turns it into a drag handle) |
+| 🖱 | **Free repositioning** | **Ctrl + left-drag** the island anywhere via Windows native drag — collapsed or expanded; position persists across restarts |
+| 👻 | **Shift = full ghost mode** | The whole island becomes click-through: no hover-expand, every click and scroll lands on the app beneath — no need to move the island |
 | 📌 | **Pinned state** | Pin the expanded panel; click outside to dismiss |
 | 📅 | **Nook tab** | Media card · mini-calendar (real dates) · pet slot reserved |
 | 🤖 | **Agents tab** | Local agent profiles (create/edit/delete, JSON-persisted) — the runtime dock for what's next |
@@ -110,9 +111,10 @@ dotnet publish src/GrumphySwarm.App/GrumphySwarm.App.csproj `
 | Gesture | Action |
 |---|---|
 | **Hover** the island | Expands (media player if something is playing, Nook/Agents otherwise) |
-| **Click** the pill | Jump straight into the media player |
+| **Click** the pill (or the media card / artwork) | Open the media player — always an explicit action; hover never hijacks the view |
 | **Double-click** / **middle-click anywhere** | Earbud battery capsule |
-| **Shift + left-drag on the island** | Move it anywhere — works collapsed or expanded |
+| **Hold Shift + scroll** over the island | Open the media player while the island stays click-through |
+| **Ctrl + left-drag on the island** | Move it anywhere — Windows' own native drag, works collapsed or expanded |
 | **Hold Shift** | Ghost mode: no hover-expand, and clicks around the island reach the tab beneath; on the island, left-drag moves it |
 | **Pin** button | Keep the panel open; click outside to unpin |
 | Tray icon → Exit | Clean shutdown |
