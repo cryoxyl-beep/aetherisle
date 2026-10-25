@@ -11,7 +11,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%2011-0078D4)](https://github.com)
 [![UI](https://img.shields.io/badge/UI-WPF-9B4F96)](https://learn.microsoft.com/dotnet/desktop/wpf/)
 [![Tests](https://img.shields.io/badge/tests-120%2F120-30D158)](#testing)
-[![Release](https://img.shields.io/badge/download-v0.5.1-FF2D55)](https://github.com/cryoxyl-beep/aetherisle/releases/latest)
+[![Release](https://img.shields.io/badge/download-v0.5.2-FF2D55)](https://github.com/cryoxyl-beep/aetherisle/releases/latest)
 
 ### ⬇️ [**Download Aetherisle.exe**](https://github.com/cryoxyl-beep/aetherisle/releases/latest/download/Aetherisle.exe) — double-click and run. No install, no .NET, no admin.
 
@@ -86,8 +86,8 @@ the percentage right inside the ring. Allow-listed to your own devices.
 | 👻 | **Shift = full ghost mode** | True OS-level click-through (WS_EX_TRANSPARENT): no hover-expand, every click and scroll lands on the app beneath; drag while holding Shift to move it |
 | 🙈 | **Ctrl + Shift = instant hide** | The island vanishes while both keys are held and returns the moment either is released |
 | 🌤 | **Live weather** | Real geo-located conditions (open-meteo) with today's high/low in the Nook view — no fabricated numbers when offline |
-| 🎵 | **Brand-logo source badge** | The now-playing artwork carries the real Apple Music / Spotify logo (other apps: icon extracted from the executable) |
-| ⏯ | **Custom transport glyphs** | Filled play / pause / next / previous icons in both the Nook mini player and the full media view |
+| 🎵 | **Brand-logo source badge** | Large real Apple Music / Spotify logo pinned to the artwork corner (other apps: icon extracted from the executable) |
+| ⏯ | **Custom transport glyphs** | Bare filled play / pause / next / previous icons (no button chrome) in both the Nook mini player and the full media view |
 | 📌 | **Pinned state** | Pin the expanded panel; click outside to dismiss |
 | 📅 | **Nook tab** | Media card · mini-calendar (real dates) · pet slot reserved |
 | 🤖 | **Agents tab** | Local agent profiles (create/edit/delete, JSON-persisted) — the runtime dock for what's next |
