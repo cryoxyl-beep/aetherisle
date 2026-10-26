@@ -11,7 +11,7 @@ Pure C# / .NET 10 / WPF. No Electron. No web views.
 [![Platform](https://img.shields.io/badge/Platform-Windows%2011-0078D4)](https://github.com)
 [![UI](https://img.shields.io/badge/UI-WPF-9B4F96)](https://learn.microsoft.com/dotnet/desktop/wpf/)
 [![Tests](https://img.shields.io/badge/tests-132%2F132-30D158)](#-testing)
-[![Release](https://img.shields.io/badge/download-v0.6.0-FF2D55)](https://github.com/cryoxyl-beep/aetherisle/releases/latest)
+[![Release](https://img.shields.io/badge/download-v0.6.1-FF2D55)](https://github.com/cryoxyl-beep/aetherisle/releases/latest)
 [![Beta](https://img.shields.io/badge/status-beta-8B5CF6)](https://github.com/cryoxyl-beep/aetherisle/releases)
 
 ### ⬇️ Direct download
