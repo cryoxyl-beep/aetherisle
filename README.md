@@ -46,7 +46,7 @@ and turns it into a living island:
 **1 — The island (collapsed pill).** The everyday state: allow-listed album art on the
 left, volume icon (live % while adjusting, red when muted), system battery with charge
 state, 12-hour clock, and the radial audio visualizer reacting to real system sound.
-Drag it anywhere with **Shift + left-drag**; hide it instantly with **Ctrl + Shift**.
+Drag it anywhere with **Shift + left-drag**; double-tap Shift to hide it.
 
 ![1 — The island pill](docs/previews/1-island-pill.png)
 
@@ -81,9 +81,9 @@ percentages inside the ring; the 3D art ships embedded in the exe.
 | 🌤 | **Live weather + Meteocons Lottie** | Real geo-located conditions (open-meteo, IP geolocation with provider fallback), today's high/low, day/night icons — the **official animated Meteocons Lottie files** playing natively |
 | 👻 | **Shift = full ghost mode** | True OS-level click-through (`WS_EX_TRANSPARENT`): no hover-expand, clicks and scrolls land on the app beneath |
 | 🖱 | **Shift + drag = move** | Reposition anywhere — persists across restarts, DPI-aware, monitor-clamped |
-| 🙈 | **Ctrl + Shift = instant hide** | Island vanishes while held, returns the instant either key is released |
+| 🙈 | **Double-tap Shift = hide** | Island vanishes until you double-tap Shift again (chosen over Ctrl+Shift: no browser/app conflicts) |
 | 📈 | **Live system stats** | CPU / GPU / RAM ring gauges with real percentages, disk space, network ↓/↑, uptime, top apps by CPU — performance counters, 2 s refresh |
-| 🎧 | **Earbud battery capsule** | Middle-click or double-tap — Airdopes 138 & Zeb Duke allow-listed, four battery channels, honest "not reported" when the device stays silent |
+| 🎧 | **Earbud battery capsule** | Middle-click **on the island** (or double-tap it) — Airdopes 138 & Zeb Duke allow-listed, four battery channels, only while the device is actually connected |
 | 📌 | **Pinned state** | Pin the expanded panel; click outside to dismiss |
 | 🛡 | **Self-healing window** | Watchdog strips rogue window ownership and recovers from minimize/hide/cloak/off-monitor — the island never stays gone |
 | 🤖 | **Agents tab** | Local agent profiles (create/edit/delete, JSON-persisted) — the dock for what's next |
@@ -118,10 +118,10 @@ dotnet publish src/GrumphySwarm.App/GrumphySwarm.App.csproj `
 | **Hover** the island | Expands the Nook (media · date · weather) |
 | **Click** the media card / artwork | Open the full media control center |
 | **Click** a nav icon | Nook · Agents · Stats — the battery pill opens Stats |
-| **Double-click** / **middle-click anywhere** | Earbud battery capsule |
+| **Double-click the island** / **middle-click it** | Earbud battery capsule (middle-click elsewhere stays with your apps) |
 | **Hold Shift** | Ghost mode — full click-through, no hover-expand |
 | **Shift + left-drag** on the island | Move it anywhere, even while ghosted |
-| **Hold Ctrl + Shift** | Hide completely until either key is released |
+| **Double-tap Shift** (two quick taps) | Hide the island; double-tap again to bring it back (tray expand also restores) |
 | **Shift + scroll** over the island | Open the media control center while staying click-through |
 | **Pin** (lock icon) | Keep the panel open; click outside to unpin |
 | Tray icon → Exit | Clean shutdown |

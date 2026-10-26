@@ -301,11 +301,16 @@ public partial class NotchWindow : Window
 
     private readonly System.Windows.Threading.DispatcherTimer _modifierWatchdog;
     private bool _ghostActive;
-    private bool _hiddenByCtrlShift;
+    private bool _hiddenByGesture;
     private IntPtr _keyboardHook;
     private NativeMethods.LowLevelKeyboardProc? _keyboardProc;
     private int _lastHookShift = -1;
     private int _lastHookCtrl = -1;
+    private readonly object _doubleTapGate = new();
+    private long _lastShiftUpTicks;
+    private long _shiftDownTicks;
+    private bool _anyKeyDownSinceShiftUp = true;
+    private bool _hiddenByDoubleShift;
 
     private void InstallKeyboardHook()
     {
@@ -342,8 +347,10 @@ public partial class NotchWindow : Window
                     or NativeMethods.WM_SYSKEYDOWN or NativeMethods.WM_SYSKEYUP)
                 {
                     var data = Marshal.PtrToStructure<NativeMethods.KBDLLHOOKSTRUCT>(lParam);
-                    if (data.vkCode is NativeMethods.VK_SHIFT or NativeMethods.VK_LSHIFT or NativeMethods.VK_RSHIFT
-                        or NativeMethods.VK_CONTROL or NativeMethods.VK_LCONTROL or NativeMethods.VK_RCONTROL)
+                    var isModifier = data.vkCode is NativeMethods.VK_SHIFT or NativeMethods.VK_LSHIFT or NativeMethods.VK_RSHIFT
+                        or NativeMethods.VK_CONTROL or NativeMethods.VK_LCONTROL or NativeMethods.VK_RCONTROL;
+
+                    if (isModifier)
                     {
                         // Read the authoritative state here (hook thread, O(1))
                         // and only wake the dispatcher when it changed.
@@ -355,6 +362,53 @@ public partial class NotchWindow : Window
                             _lastHookCtrl = ctrl;
                             Dispatcher.BeginInvoke(UpdateModifierState);
                         }
+
+                        // Double-tap SHIFT = hide toggle. A tap is a short
+                        // (<300 ms) press; two taps within 400 ms of each other,
+                        // with no other key in between, toggle the hide. Normal
+                        // typing, Shift+drag and Shift+scroll never qualify.
+                        if (data.vkCode is NativeMethods.VK_SHIFT or NativeMethods.VK_LSHIFT or NativeMethods.VK_RSHIFT)
+                        {
+                            var now = System.Environment.TickCount64;
+                            var isUp = message is NativeMethods.WM_KEYUP or NativeMethods.WM_SYSKEYUP;
+                            lock (_doubleTapGate)
+                            {
+                                if (isUp)
+                                {
+                                    if (!_anyKeyDownSinceShiftUp && now - _shiftDownTicks <= 300)
+                                    {
+                                        if (_lastShiftUpTicks > 0 && now - _lastShiftUpTicks <= 400)
+                                        {
+                                            _hiddenByDoubleShift = !_hiddenByDoubleShift;
+                                            _lastShiftUpTicks = 0;
+                                            Dispatcher.BeginInvoke(UpdateModifierState);
+                                        }
+                                        else
+                                        {
+                                            _lastShiftUpTicks = now;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        _lastShiftUpTicks = 0; // long hold — streak broken
+                                    }
+                                }
+                                else
+                                {
+                                    _shiftDownTicks = now;
+                                    _anyKeyDownSinceShiftUp = false;
+                                }
+                            }
+                        }
+                        else if (message is NativeMethods.WM_KEYDOWN or NativeMethods.WM_SYSKEYDOWN)
+                        {
+                            _anyKeyDownSinceShiftUp = true;
+                        }
+                    }
+                    else if (message is NativeMethods.WM_KEYDOWN or NativeMethods.WM_SYSKEYDOWN)
+                    {
+                        // Any non-modifier key breaks a double-tap streak.
+                        _anyKeyDownSinceShiftUp = true;
                     }
                 }
             }
@@ -369,39 +423,38 @@ public partial class NotchWindow : Window
 
     /// <summary>
     /// Applies the current modifier combination:
-    ///   - Shift only      → true click-through ghost (WS_EX_TRANSPARENT);
-    ///                       an expanded island is collapsed first, because
-    ///                       ghost mode swallows the MouseLeave that would.
-    ///   - Shift + drag    → reposition (handled in the mouse hook).
-    ///   - Ctrl + Shift    → hide the island entirely (takes precedence;
-    ///                       hiding never starts a drag).
-    ///   - neither         → normal behavior.
+    ///   - Shift only            → true click-through ghost (WS_EX_TRANSPARENT);
+    ///                             an expanded island is collapsed first, because
+    ///                             ghost mode swallows the MouseLeave that would.
+    ///   - Shift + drag          → reposition (handled in the mouse hook).
+    ///   - double-tap Shift      → hide the island until double-tapped again
+    ///                             (Ctrl+Shift was abandoned: every browser
+    ///                             treats it as its own shortcut).
     /// </summary>
     private void UpdateModifierState()
     {
         try
         {
             var shift = NativeMethods.IsShiftHeld();
-            var ctrl = NativeMethods.IsCtrlHeld();
 
-            if (shift && ctrl)
+            if (_hiddenByDoubleShift)
             {
-                if (!_hiddenByCtrlShift)
+                if (!_hiddenByGesture)
                 {
-                    _hiddenByCtrlShift = true;
+                    _hiddenByGesture = true;
                     NativeMethods.ShowWindow(_hwnd, NativeMethods.SW_HIDE);
-                    _logger.LogInformation("Island hidden (Ctrl+Shift held).");
+                    _logger.LogInformation("Island hidden (Shift double-tap).");
                 }
 
                 return;
             }
 
-            if (_hiddenByCtrlShift)
+            if (_hiddenByGesture)
             {
-                _hiddenByCtrlShift = false;
+                _hiddenByGesture = false;
                 NativeMethods.ShowWindow(_hwnd, NativeMethods.SW_SHOWNOACTIVATE);
-                RepositionToMonitor("Ctrl+Shift released");
-                _logger.LogInformation("Island shown again (Ctrl+Shift released).");
+                RepositionToMonitor("Shift double-tap released");
+                _logger.LogInformation("Island shown again (Shift double-tap toggle off).");
             }
 
             var ghostDesired = shift;
@@ -438,7 +491,7 @@ public partial class NotchWindow : Window
         {
             UpdateModifierState();
 
-            if (_hiddenByCtrlShift || _hwnd == IntPtr.Zero)
+            if (_hiddenByGesture || _hwnd == IntPtr.Zero)
             {
                 return;
             }
@@ -513,10 +566,24 @@ public partial class NotchWindow : Window
 
     private void OnStateChangedEnsureVisible(NotchState state)
     {
-        if (state is NotchState.Expanded or NotchState.Pinned
-            && _hwnd != IntPtr.Zero
-            && !_hiddenByCtrlShift
-            && (!NativeMethods.IsWindowVisible(_hwnd) || NativeMethods.IsWindowCloaked(_hwnd)))
+        if (state is not (NotchState.Expanded or NotchState.Pinned) || _hwnd == IntPtr.Zero)
+        {
+            return;
+        }
+
+        // A tray expand is an explicit user request: it lifts the double-tap
+        // hide too, so the island can never be lost behind the gesture.
+        if (_hiddenByGesture || _hiddenByDoubleShift)
+        {
+            _hiddenByGesture = false;
+            _hiddenByDoubleShift = false;
+            NativeMethods.ShowWindow(_hwnd, NativeMethods.SW_SHOWNOACTIVATE);
+            RepositionToMonitor("recovered on expand request");
+            _logger.LogInformation("Expand request lifted the double-tap hide.");
+            return;
+        }
+
+        if (!NativeMethods.IsWindowVisible(_hwnd) || NativeMethods.IsWindowCloaked(_hwnd))
         {
             NativeMethods.ShowWindow(_hwnd, NativeMethods.SW_SHOWNOACTIVATE);
             RepositionToMonitor("recovered on expand request");
@@ -666,13 +733,16 @@ public partial class NotchWindow : Window
 
                 switch (message)
                 {
-                    case NativeMethods.WM_MBUTTONDOWN:
-                        // Toggle the battery capsule on middle click, anywhere.
+                    case NativeMethods.WM_MBUTTONDOWN when _grabRectScreen.Width > 0
+                        && _grabRectScreen.Contains(screenPoint):
+                        // Middle-click ON the island toggles the battery capsule.
+                        // Elsewhere, middle click belongs to the app under the
+                        // cursor (closing browser tabs, autoscroll, ...).
                         Dispatcher.BeginInvoke(() => _viewModel.ToggleBattery());
                         break;
 
                     case NativeMethods.WM_LBUTTONDOWN when NativeMethods.IsShiftHeld()
-                        && !_hiddenByCtrlShift
+                        && !_hiddenByGesture
                         && _grabRectScreen.Width > 0
                         && _grabRectScreen.Contains(screenPoint)
                         && NativeMethods.GetWindowRect(_hwnd, out var grabRect):

@@ -51,6 +51,10 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
     private readonly object _gate = new();
     private readonly Dictionary<string, EarbudStatus> _devices = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Windows.Devices.Bluetooth.GenericAttributeProfile.GattCharacteristic> _gattCharacteristics = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>HFP battery readings that arrived while no endpoint reported
+    /// the device connected — applied the moment a connect event lands.</summary>
+    private readonly Dictionary<string, int> _pendingPnpBattery = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<Windows.Devices.Bluetooth.GenericAttributeProfile.GattDeviceService> _gattServiceHolders = [];
     private readonly HashSet<string> _gattAttempted = new(StringComparer.OrdinalIgnoreCase);
 
@@ -64,6 +68,16 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
     [
         HfpBatteryKey,
         "{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 3",
+    ];
+
+    /// <summary>PnP keys + presence — paired-but-disconnected devnodes keep
+    /// their cached battery property, so presence MUST gate the value or the
+    /// island shows battery % for devices that are not connected at all.</summary>
+    private static readonly string[] PnpPropertiesWithPresence =
+    [
+        HfpBatteryKey,
+        "{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 3",
+        "System.Devices.IsPresent",
     ];
 
     private DeviceWatcher? _watcher;
@@ -185,13 +199,28 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
             // so the allow-list's contains-match still applies.
             try
             {
-                _pnpWatcher = DeviceInformation.CreateWatcher(
-                    string.Empty,
-                    PnpProperties,
-                    DeviceInformationKind.Device);
+                // Prefer the presence-gated property list; some builds reject
+                // the extra key, then we fall back (stale values are still
+                // filtered by the connected-check in HandlePnpDevice below).
+                try
+                {
+                    _pnpWatcher = DeviceInformation.CreateWatcher(
+                        string.Empty,
+                        PnpPropertiesWithPresence,
+                        DeviceInformationKind.Device);
+                }
+                catch (Exception keyEx)
+                {
+                    _logger.LogDebug(keyEx, "Bluetooth: PnP watcher with IsPresent rejected; falling back.");
+                    _pnpWatcher = DeviceInformation.CreateWatcher(
+                        string.Empty,
+                        PnpProperties,
+                        DeviceInformationKind.Device);
+                }
+
                 _pnpWatcher.Added += OnPnpDeviceEvent;
                 _pnpWatcher.Start();
-                _logger.LogInformation("Bluetooth: PnP HFP battery watcher active.");
+                _logger.LogInformation("Bluetooth: PnP HFP battery watcher active (presence-gated).");
             }
             catch (Exception ex)
             {
@@ -260,41 +289,140 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
     private void HandlePnpDevice(DeviceInformation info)
     {
         var battery = ReadBatteryPercent(info.Properties);
+
+        // A paired-but-disconnected devnode keeps its cached battery property.
+        // When presence is reported false, drop any stored value instead of
+        // showing battery % for a device that is not connected.
+        if (info.Properties.TryGetValue("System.Devices.IsPresent", out var presenceRaw))
+        {
+            var isPresent = presenceRaw switch
+            {
+                bool b => b,
+                IConvertible convertible => convertible.ToBoolean(System.Globalization.CultureInfo.InvariantCulture),
+                _ => true,
+            };
+
+            if (!isPresent)
+            {
+                bool dropped;
+                lock (_gate)
+                {
+                    dropped = DropBatteryForName(info.Name);
+                }
+
+                if (dropped)
+                {
+                    _logger.LogInformation(
+                        "Bluetooth: {Name} is not present; cached battery dropped.",
+                        info.Name);
+                    Publish();
+                }
+
+                return;
+            }
+        }
+
         if (battery is null || !MediaAllowList.IsEarbudAllowed(info.Name))
         {
             return;
         }
 
         var percent2 = battery.Value;
+        var applied = false;
+
         lock (_gate)
         {
             var name = info.Name;
-            var applied = false;
 
-            // Merge into any existing entry of the same physical device: PnP
-            // names carry profile suffixes ("Airdopes 138 Hands-Free AG"), so
-            // match on either name containing the other.
+            // A battery value does NOT imply connected — paired devnodes keep
+            // their cached battery after disconnect. Only apply it to an entry
+            // whose endpoint currently reports connected; otherwise stash it
+            // until a connect event lands (ApplyPendingBatteries).
             foreach (var key in _devices.Keys.ToList())
             {
                 var existing = _devices[key].Name;
-                if (string.Equals(existing, name, StringComparison.OrdinalIgnoreCase)
-                    || name.Contains(existing, StringComparison.OrdinalIgnoreCase)
-                    || existing.Contains(name, StringComparison.OrdinalIgnoreCase))
+                if (_devices[key].IsConnected
+                    && (string.Equals(existing, name, StringComparison.OrdinalIgnoreCase)
+                        || name.Contains(existing, StringComparison.OrdinalIgnoreCase)
+                        || existing.Contains(name, StringComparison.OrdinalIgnoreCase)))
                 {
-                    _devices[key] = _devices[key] with { BatteryPercent = percent2, IsConnected = true };
+                    _devices[key] = _devices[key] with { BatteryPercent = percent2 };
                     applied = true;
                 }
             }
 
-            // …or record the devnode itself (battery implies connected).
             if (!applied)
             {
-                _devices["pnp:" + info.Id] = new EarbudStatus(name, percent2, true);
+                _pendingPnpBattery[name] = percent2;
             }
         }
 
-        _logger.LogInformation("Bluetooth: {Name} battery {Percent}% via PnP HFP property.", info.Name, percent2);
-        Publish();
+        _logger.LogInformation(
+            "Bluetooth: {Name} battery {Percent}% via PnP HFP property ({State}).",
+            info.Name,
+            percent2,
+            applied ? "applied (connected)" : "held pending connect");
+    }
+
+    /// <summary>Applies stashed HFP batteries once an endpoint reports the
+    /// device connected (connect events often land after the battery read).</summary>
+    private void ApplyPendingBatteries(string connectedName)
+    {
+        List<KeyValuePair<string, int>>? pending;
+        lock (_gate)
+        {
+            pending = null;
+            foreach (var key in _pendingPnpBattery.Keys.ToList())
+            {
+                if (string.Equals(key, connectedName, StringComparison.OrdinalIgnoreCase)
+                    || key.Contains(connectedName, StringComparison.OrdinalIgnoreCase)
+                    || connectedName.Contains(key, StringComparison.OrdinalIgnoreCase))
+                {
+                    (pending ??= []).Add(new(key, _pendingPnpBattery[key]));
+                    _pendingPnpBattery.Remove(key);
+                }
+            }
+
+            if (pending is not null)
+            {
+                foreach (var (name, percent) in pending)
+                {
+                    foreach (var key in _devices.Keys.ToList())
+                    {
+                        var existing = _devices[key].Name;
+                        if (string.Equals(existing, name, StringComparison.OrdinalIgnoreCase)
+                            || name.Contains(existing, StringComparison.OrdinalIgnoreCase)
+                            || existing.Contains(name, StringComparison.OrdinalIgnoreCase))
+                        {
+                            _devices[key] = _devices[key] with { BatteryPercent = percent };
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>Clears cached battery + connected state for every entry whose
+    /// name matches the given device (returns true when something changed).</summary>
+    private bool DropBatteryForName(string name)
+    {
+        var changed = false;
+        foreach (var key in _devices.Keys.ToList())
+        {
+            var existing = _devices[key].Name;
+            if (string.Equals(existing, name, StringComparison.OrdinalIgnoreCase)
+                || name.Contains(existing, StringComparison.OrdinalIgnoreCase)
+                || existing.Contains(name, StringComparison.OrdinalIgnoreCase))
+            {
+                if (_devices[key].BatteryPercent is not null || _devices[key].IsConnected)
+                {
+                    _devices[key] = _devices[key] with { BatteryPercent = null, IsConnected = false };
+                    changed = true;
+                }
+            }
+        }
+
+        return changed;
     }
 
     private void OnWatcherAdded(DeviceWatcher sender, DeviceInformation info)
@@ -360,6 +488,7 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
         }
 
         var connected = ReadBool(properties, "System.Devices.Aep.IsConnected");
+        var connectedReported = properties.ContainsKey("System.Devices.Aep.IsConnected");
 
         lock (_gate)
         {
@@ -374,6 +503,25 @@ public sealed class BluetoothBatteryMonitor : IBluetoothBatteryMonitor
                     if (key != id && _devices[key].Name == name && _devices[key].BatteryPercent is null)
                     {
                         _devices[key] = _devices[key] with { BatteryPercent = percent };
+                    }
+                }
+            }
+
+            if (connectedReported && connected)
+            {
+                ApplyPendingBatteries(name);
+            }
+
+            // The device explicitly says it is NOT connected: clear any cached
+            // battery (devnode caches survive disconnects) on this entry and
+            // its same-name siblings.
+            if (connectedReported && !connected)
+            {
+                foreach (var key in _devices.Keys.ToList())
+                {
+                    if (_devices[key].Name == name && _devices[key].BatteryPercent is not null)
+                    {
+                        _devices[key] = _devices[key] with { BatteryPercent = null, IsConnected = false };
                     }
                 }
             }

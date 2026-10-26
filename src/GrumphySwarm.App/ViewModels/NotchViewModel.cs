@@ -589,15 +589,17 @@ public partial class NotchViewModel : ObservableObject, IDisposable
             return;
         }
 
+        // Only devices CURRENTLY connected are eligible — paired-but-
+        // disconnected devices keep cached battery values that must not show.
         var status = _bluetoothMonitor.Current.Values
-            .OrderByDescending(d => d.IsConnected)
-            .ThenByDescending(d => d.BatteryPercent.HasValue)
+            .Where(d => d.IsConnected)
+            .OrderByDescending(d => d.BatteryPercent.HasValue)
             .ThenBy(d => d.Name, StringComparer.CurrentCulture)
             .FirstOrDefault();
 
         if (status is null || string.IsNullOrEmpty(status.Name))
         {
-            // No allow-listed device seen this session.
+            // No allow-listed device is connected right now.
             BatteryDeviceName = "No earbuds";
             BatteryText = "Airdopes 138 / Zeb Duke not connected";
             BatteryPercent = null;
@@ -991,8 +993,8 @@ public partial class NotchViewModel : ObservableObject, IDisposable
         _dispatcher.BeginInvoke(() =>
         {
             var status = devices.Values
-                .OrderByDescending(d => d.IsConnected)
-                .ThenByDescending(d => d.BatteryPercent.HasValue)
+                .Where(d => d.IsConnected)
+                .OrderByDescending(d => d.BatteryPercent.HasValue)
                 .ThenBy(d => d.Name, StringComparer.CurrentCulture)
                 .FirstOrDefault();
 
